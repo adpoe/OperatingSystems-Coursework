@@ -13,10 +13,9 @@
  *
  */
 
-// Debugging includes --> REMOVE!!!!!!!!!!
-#include<stdio.h>
 
 // Includes
+#include<stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -57,10 +56,10 @@ int main(int argc, char *argv[]) {
     // do cool stuff in between
 
     // exit and cleanup the files and memory mappings, restore iotl
-    //exit_graphics();
+    exit_graphics();
 
     // clear the screen itself
-    //clear_screen();
+    clear_screen();
 }
 
 /*
@@ -154,46 +153,47 @@ void init_graphics() {
         return;
     }
 
-    /*
-     * Function to undo whatever is necessary before the program exits
-     * Use for cleanup
-     */
-    void exit_graphics() {
-        // close the file and cleanup memory mapping
-        if (close(fd) == -1) {
-            printf("Error closing the file at /dev/fb0\n");
-            perror("Error closing the file at /dev/fb0");
-            return;
-        }
+}
 
-        if (munmap(file_addr, sb.st_size) == -1) {
-            printf("Error at munmap()\n");
-            perror("Error at munmap()");
-            return;
-        }
-
-        // set our terminal settings back to what they used to be, via ioctl
-        if (ioctl(0, TCSETS, &backup_terminal_settings) == -1) {
-            printf("Error restoring old terminal values via ioctl\n");
-            perror("Error restoring old terminal values via ioctl");
-            return;
-        }
-
+/*
+ * Function to undo whatever is necessary before the program exits
+ * Use for cleanup
+ */
+void exit_graphics() {
+    // close the file and cleanup memory mapping
+    if (close(fd) == -1) {
+        printf("Error closing the file at /dev/fb0\n");
+        perror("Error closing the file at /dev/fb0");
+        return;
     }
 
-    /*
-     * Clear the screen with ans ASCII escape code, sent to STDOUT
-     */
-    void clear_screen() {
-        // clear screen with an ANSI escape code
-        // seven bytes, since 7 chars
-        // writing to file descriptor 1 for stdout (2 is stderr, if we need it)
-        if(write(1, "\033[2j", 7) == -1) {
-            printf("Error clearing STDOUT\n");
-            perror("Error clearing STDOUT");
-            return;
-        };
+    if (munmap(file_addr, sb.st_size) == -1) {
+        printf("Error at munmap()\n");
+        perror("Error at munmap()");
+        return;
     }
 
+    // set our terminal settings back to what they used to be, via ioctl
+    if (ioctl(0, TCSETS, &backup_terminal_settings) == -1) {
+        printf("Error restoring old terminal values via ioctl\n");
+        perror("Error restoring old terminal values via ioctl");
+        return;
+    }
 
 }
+
+/*
+ * Clear the screen with ans ASCII escape code, sent to STDOUT
+ */
+void clear_screen() {
+// clear screen with an ANSI escape code
+    // seven bytes, since 7 chars
+    // writing to file descriptor 1 for stdout (2 is stderr, if we need it)
+    if(write(1, "\033[2j", 7) == -1) {
+        printf("Error clearing STDOUT\n");
+        perror("Error clearing STDOUT");
+        return;
+    };
+}
+
+
