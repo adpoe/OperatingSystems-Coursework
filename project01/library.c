@@ -170,7 +170,7 @@ void exit_graphics() {
         perror("Error closing the file at /dev/fb0");
         return;
     }
-
+    printf("sb.st_size=%d\n", sb.st_size);
     if (munmap(file_addr, sb.st_size) == -1) {
         printf("Error at munmap()\n");
         perror("Error at munmap()");
@@ -222,7 +222,6 @@ char getKey() {
     if (retval == -1) {  /* means we have an error */
          printf("Error on select() syscall\n");
          perror("Error on select() syscall");
-         exit(-1);
     } else if (retval) { /* means we have a data value */
          // we have data, so let's read it, again using '1' as our fd, since 1=stdin
          ssize_t numBytesRead;
@@ -230,7 +229,6 @@ char getKey() {
          if (numBytesRead < 1) {
             printf("Error Reading Character in getKey(), read() syscall\n");
             perror("read(), in getkey()");
-            exit(-1);
          }
     } else {  /* just in case */
         printf("No data read. No error. Made it to else in select() syscall\n");
@@ -253,7 +251,6 @@ void sleep_ms(long ms) {
     if (nanosleep(&time_spec, NULL) < 0) {   /* means we have an error */
         printf("Error at nanosleep() system call in sleep_ms\n");
         perror("nanosleep");
-        exit(-1);
     }
 }
 
