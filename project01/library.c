@@ -10,12 +10,13 @@
  * Tutorial for mmap():  https://www.safaribooksonline.com/library/view/linux-system-programming/0596009585/ch04s03.html
  * Notes on disabling keypress echo:  http://www.glue.umd.edu/afs/glue.umd.edu/system/info/olh/Programming/Answers_to_Common_Questions_about_C/c_terminal_echo
  * Notes on disabling cannonical mode, generally messing around with termnios: http://blog.eduardofleury.com/archives/2007/11/16
+ * Notes on select system call at: http://www.tutorialspoint.com/unix_system_calls/_newselect.htm
  *
  */
 
 
 // Includes
-#include<stdio.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -25,6 +26,9 @@
 #include <termios.h>
 #include <linux/fb.h>
 #include "iso_font.h"
+#include <sys/select.h>
+#include <sys/time.h>
+#include <sys/types.h>
 
 // Definitions
 typedef int16_t color_t;
@@ -44,6 +48,7 @@ void draw_text(int x, int y, const char *text, color_t c);
 file_descriptor_t fd;
 void *file_addr;
 struct termios backup_terminal_settings;
+struct stat sb;
 
 /*
  * Main entry point for program
@@ -67,7 +72,6 @@ int main(int argc, char *argv[]) {
  */
 void init_graphics() {
     // definitions needed
-    struct stat sb;
     off_t len;
 
     // the file at /dev/fb0, and get its file descriptor
@@ -196,4 +200,63 @@ void clear_screen() {
     };
 }
 
+/*
+ * Get a keystroke as user input, using select() as a non-blocking call,
+ * unless input is present. In which case we then do a read(), which is blocking.
+ */
+char getKey() {
+    // define our variables
+    fd_set rfds;
+    struct timeval tv;
+    int retval;
+    char buffer = '\0';   // Initialize to null, so we always have something to return
 
+    // monitor stdin (fd=1), using select(), so we have a non-blocking call unless a key is pressed
+    FD_ZERO(&rfds);
+    FD_SET(0, &rfds);
+    // don't wait at all, just perform one call to check for presence of input
+    tv.tv_sec = 0;   // how many seconds to wait
+    tv.tv_usec = 0;  // how many microseconds to wait
+    retval = select(1, &rfds, NULL, NULL, &tv); // running on fd=1, because first  arg, 'nfds' is the highest num file_descr
+                                                // in any of the three values passed in, +1.  We're reading on (0 + 1) = 1
+    if (retval == -1) {  /* means we have an error */
+         printf("Error on select() syscall\n");
+         perror("Error on select() syscall");
+         exit(-1);
+    } else if (retval) { /* means we have a data value */
+         // we have data, so let's read it, again using '1' as our fd, since 1=stdin
+         ssize_t numBytesRead;
+         numBytesRead = read(0, &buffer, 1);
+         if (numBytesRead < 1) {
+            printf("Error Reading Character in getKey(), read() syscall\n");
+            perror("read(), in getkey()");
+            exit(-1);
+         }
+    } else {  /* just in case */
+        printf("No data read. No error. Made it to else in select() syscall\n");
+    }
+
+    return buffer;
+}
+
+/*
+ * Call nanosleep() to make program sleep between frames of graphics being drawn
+ * Multiply the value passed in by 1,000,000 to achieve ms precision
+ */
+void sleep_ms(long ms) {
+    // Create a timespec struct to pass in, defined in <time.h>
+    struct timespec time_spec;
+    time_spec.tv_sec = 0;
+    time_spec.tv_nsec = ms * 1000000;
+
+    // call nanosleep(), and check for error
+    if (nanosleep(&time_spec, NULL) < 0) {   /* means we have an error */
+        printf("Error at nanosleep() system call in sleep_ms\n");
+        perror("nanosleep");
+        exit(-1);
+    }
+}
+
+void draw_pixel(int x, int y, color_t color) {
+    // code goes here
+}
