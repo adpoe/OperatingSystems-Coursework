@@ -43,6 +43,7 @@ void sleep_ms(long ms);
 void draw_pixel(int x, int y, color_t color);
 void draw_rect(int x1, int y1, int width, int height, color_t c);
 void draw_text(int x, int y, const char *text, color_t c);
+void draw_char(int x, int y, const char character, color_t c);
 
 // Global variables, which more than one function needs to access
 file_descriptor_t fd;
@@ -308,3 +309,37 @@ void draw_rect(int x1, int y1, int width, int height, color_t c) {
             draw_pixel(x1 + width, y1 + col_counter, c)
     }
 }
+
+/*
+ * Draw the string with the specified color at the starting location (x,y).
+ * (X,Y) is the upper left corner of FIRST letter.
+ * Each letter ix 8x16 pixels.
+ * Each letter is encoded as 16 1-byte integers
+ *
+ * Index to character by ASCII value * number of rows.
+ * So, A, ASCII=65, is found at (65*16 + 0) --> (16*16 + 15)
+ *
+ * Using shifting and masking, go through each bit of the 16 rows and draw a pixel at
+ * the appropriate coordinate if the bit is 1
+ *
+ *Strategy: Break into 2 functions.
+ * - 1. for drawing a single character.
+ * - 2. for drawing the whole string
+ *
+ * Don't use strlen(), just iterate until you find '\0'
+ *
+ * No need to worry about line breaking.
+ *
+ *
+ */
+void draw_text(int x, int y, const char *text, color_t c) {
+    // code here
+
+}
+
+
+void draw_char(int x, int y, const char character, color_t c) {
+    // code here
+
+}
+
