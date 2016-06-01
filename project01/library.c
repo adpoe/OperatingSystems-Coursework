@@ -49,6 +49,9 @@ file_descriptor_t fd;
 void *file_addr;
 struct termios backup_terminal_settings;
 struct stat sb;
+struct fb_var_screeninfo virtual_resolution;
+struct fb_fix_screeninfo bit_depth;
+int mmap_total_size;
 
 /*
  * Main entry point for program
@@ -60,7 +63,7 @@ int main(int argc, char *argv[]) {
 
     // do cool stuff in between
 
-    // exit and cleanup the files and memory mappings, restore iotl
+    // exit and cleanup the files and memory mappings, restore ioctl
     exit_graphics();
 
     // clear the screen itself
@@ -92,21 +95,14 @@ void init_graphics() {
 
     if(!S_ISREG(sb.st_mode)) {
         fprintf(stderr, "%s is not a file\n", "/dev/fb0");
-        return;
-    }
-
-
-    // use mmap() to map the file we've just opened into memory
-    file_addr = mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
-
-    if (file_addr == MAP_FAILED) {
-         perror("Map Failed");
-         return;
+        perror("/dev/fb0 is not a file");
+        //return;
     }
 
     // get resolution of the screen, so we can use our memory mapping correctly
-    struct fb_var_screeninfo virtual_resolution;
-    struct fb_fix_screeninfo bit_depth;
+    // store these in the fb_ structs named:
+    // var_screeninfo -> virtual_resolution, AND...
+    // fix_screeninfo -> bit_depth
     int ioctl_return;
     ioctl_return = ioctl(fd, FBIOGET_VSCREENINFO, &virtual_resolution);
     if (ioctl_return == -1) {
@@ -115,15 +111,28 @@ void init_graphics() {
         return;
     }
 
-    ioctl_return = ioctl(fd, FBIOGET_FSCREENINFO, &virtual_resolution);
+    printf("VIRTUAL_RESOLUTION.BITS_PER_PIXEL (VAR_SC_INFO)= %d\n", virtual_resolution.bits_per_pixel);
+
+    ioctl_return = ioctl(fd, FBIOGET_FSCREENINFO, &bit_depth);
     if (ioctl_return == -1) {
         printf("Failure on ioctl, call to FBIOGET_FSCREENINFO\n");
         perror("Failure on ioctl, call to FBIOGET_FSCREENINFO");
         return;
     }
+    printf("BIT_DEPTH.LINE_LENGTH (FIX_SC_INFO)= %d(bytes)\n", bit_depth.line_length);
 
     // get mmap total size
-    int mmap_total_size = virtual_resolution.yres_virtual * bit_depth.line_length;
+    mmap_total_size = virtual_resolution.yres_virtual * bit_depth.line_length;
+    printf("MMAP_TOTAL_SIZE = %d\n", mmap_total_size);
+
+    // use mmap() to map the file we've just opened into memory
+    file_addr = mmap(NULL, mmap_total_size, PROT_READ, MAP_SHARED, fd, 0);
+    printf("FILE ADDRESS FOR fb0: %p\n", file_addr);
+
+    if (file_addr == MAP_FAILED) {
+         perror("Map Failed");
+         //return;
+    }
 
     // use the ioctl system call to disable keypress echo and buffering keypresses
     struct termios terminal_settings_old;
@@ -168,20 +177,16 @@ void exit_graphics() {
     if (close(fd) == -1) {
         printf("Error closing the file at /dev/fb0\n");
         perror("Error closing the file at /dev/fb0");
-        return;
     }
-    printf("sb.st_size=%d\n", sb.st_size);
-    if (munmap(file_addr, sb.st_size) == -1) {
+    if (munmap(file_addr, mmap_total_size) == -1) {
         printf("Error at munmap()\n");
         perror("Error at munmap()");
-        return;
     }
 
     // set our terminal settings back to what they used to be, via ioctl
     if (ioctl(0, TCSETS, &backup_terminal_settings) == -1) {
         printf("Error restoring old terminal values via ioctl\n");
         perror("Error restoring old terminal values via ioctl");
-        return;
     }
 
 }
@@ -254,6 +259,52 @@ void sleep_ms(long ms) {
     }
 }
 
+/*
+ * The main drawing code. Set the pixel at coordinates (x,y) to the specified color,
+ * taking values from a 16bit int we are using to represent the color.
+ * Use the given coords the scale the base address of the memory-mapped buffer, using pointer arithmetic.
+ * Frame buffer stored in row-major order. Meaning that first row starts at offset 0, then is followed
+ * by the second row of pixels, &c.
+ *
+ */
 void draw_pixel(int x, int y, color_t color) {
-    // code goes here
+    // scale our values to bytes
+    int scaled_offset;
+    int line_length_in_bytes = bit_depth.line_length;  // already in bytes
+    int bits_per_pixel_scaled_to_bytes = (virtual_resolution.bits_per_pixel / 8);
+
+    // use scaled values to find the offset
+    scaled_offset = (x * bits_per_pixel_scaled_to_bytes) + (y * line_length_in_bytes);
+
+    // get location of pixel to draw, within our memory map
+    color_t *pixel_location;
+    pixel_location = file_addr + scaled_offset;
+
+    // transform this pixel location to a different color, as specified by the user
+    pixel_location = &color;
+
+}
+
+/*
+ * Using draw_pixel(), make a rectangle with corners (x1,y1),
+ *                                                   (x1 + width, y1),
+ *                                                   (x1+width, y1+height),
+ *                                                   (x1, y1+height)
+ */
+void draw_rect(int x1, int y1, int width, int height, color_t c) {
+    // initialize rows and columns
+    int row_counter;
+    int col_counter;
+
+    // iterate and draw our pixels
+    for (row_counter = 0; row_counter < width; row_counter++) {
+            // call draw pixel on current values along x-axis
+            draw_pixel(x1 + row_counter, y1, c);
+            draw_pixel(x1 + row_counter, y1 + height, c);
+    }
+    for (col_counter = 0; col_counter < height; col_counter++) {
+            // call draw pixel on current values along y-axis
+            draw_pixel(x1, y1 + col_counter, c)
+            draw_pixel(x1 + width, y1 + col_counter, c)
+    }
 }
