@@ -31,7 +31,7 @@
 #include <sys/types.h>
 
 // Definitions
-typedef int16_t color_t;
+typedef short color_t;
 typedef int file_descriptor_t;
 
 // Function Prototypes
@@ -54,9 +54,11 @@ struct fb_var_screeninfo virtual_resolution;
 struct fb_fix_screeninfo bit_depth;
 int mmap_total_size;
 
+
 /*
  * Main entry point for program
  */
+/*
 int main(int argc, char *argv[]) {
 
     // initialize the settings for our graphics library
@@ -70,28 +72,29 @@ int main(int argc, char *argv[]) {
     // clear the screen itself
     clear_screen();
 }
+*/
 
 /*
- *  Opens a graphics device by getting a handle to the first byte of the framebuffer, stored at '/dev/fb0'
+ *  opens a graphics device by getting a handle to the first byte of the framebuffer, stored at '/dev/fb0'
  */
 void init_graphics() {
     // definitions needed
     off_t len;
 
     // the file at /dev/fb0, and get its file descriptor
-    fd = open("/dev/fb0", O_RDWR);  /* opens file BOTH for reading and writing */
-    printf("FILE DESCRIPTOR FOR fb0: %d\n", fd);
+    fd = open("/dev/fb0", O_RDWR);  /* opens file both for reading and writing */
+    printf("file descriptor for fb0: %d\n", fd);
 
     if (fd == -1) {
          printf("Error On Opening the File\n");
          perror("Error On Opening the File");
-         return;
+         //return;
     }
 
     if (fstat(fd, &sb) == -1) {
         printf("Error from fstat\n");
         perror("Error from fstat");
-        return;
+        //return;
     }
 
     if(!S_ISREG(sb.st_mode)) {
@@ -109,7 +112,7 @@ void init_graphics() {
     if (ioctl_return == -1) {
         printf("Failure on ioctl, call to FBIOGET_VSCREENINFO\n");
         perror("Failure on ioctl, call to FBIOGET_VSCREENINFO");
-        return;
+        //return;
     }
 
     printf("VIRTUAL_RESOLUTION.BITS_PER_PIXEL (VAR_SC_INFO)= %d\n", virtual_resolution.bits_per_pixel);
@@ -118,20 +121,22 @@ void init_graphics() {
     if (ioctl_return == -1) {
         printf("Failure on ioctl, call to FBIOGET_FSCREENINFO\n");
         perror("Failure on ioctl, call to FBIOGET_FSCREENINFO");
-        return;
+        //return;
     }
     printf("BIT_DEPTH.LINE_LENGTH (FIX_SC_INFO)= %d(bytes)\n", bit_depth.line_length);
 
     // get mmap total size
     mmap_total_size = virtual_resolution.yres_virtual * bit_depth.line_length;
+    printf("VIRTUAL_RESOLUTION.YRES = %d\n", virtual_resolution.yres_virtual);
     printf("MMAP_TOTAL_SIZE = %d\n", mmap_total_size);
 
     // use mmap() to map the file we've just opened into memory
-    file_addr = mmap(NULL, mmap_total_size, PROT_READ, MAP_SHARED, fd, 0);
+    file_addr = mmap(NULL, mmap_total_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     printf("FILE ADDRESS FOR fb0: %p\n", file_addr);
 
     if (file_addr == MAP_FAILED) {
          perror("Map Failed");
+         printf("Map failed\n");
          //return;
     }
 
@@ -144,7 +149,7 @@ void init_graphics() {
     if (ioctl_return == -1) {
         printf("Failure on ioctl, call to TCGETS\n");
         perror("Failure on ioctl, call to TCGETS");
-        return;
+        //return;
     }
 
     // backup our terminal settings, before we change anything
@@ -160,11 +165,11 @@ void init_graphics() {
     terminal_settings_new = terminal_settings_old;
 
     // set the new terminal settings, via ioctl
-    ioctl_return = ioctl(0, TCGETS, &terminal_settings_new);
+    ioctl_return = ioctl(0, TCSETS, &terminal_settings_new);
     if (ioctl_return == -1) {
         printf("Failure on ioctl, call to TCSETS\n");
         perror("Failure on ioctl, call to TCSETS");
-        return;
+        //return;
     }
 
 }
@@ -210,7 +215,7 @@ void clear_screen() {
  * Get a keystroke as user input, using select() as a non-blocking call,
  * unless input is present. In which case we then do a read(), which is blocking.
  */
-char getKey() {
+char getkey() {
     // define our variables
     fd_set rfds;
     struct timeval tv;
@@ -236,9 +241,9 @@ char getKey() {
             printf("Error Reading Character in getKey(), read() syscall\n");
             perror("read(), in getkey()");
          }
-    } else {  /* just in case */
-        printf("No data read. No error. Made it to else in select() syscall\n");
-    }
+    } //else {  /* just in case */
+      //  printf("No data read. No error. Made it to else in select() syscall\n");
+      // }
 
     return buffer;
 }
@@ -280,6 +285,9 @@ void draw_pixel(int x, int y, color_t color) {
     // get location of pixel to draw, within our memory map
     color_t *pixel_location;
     pixel_location = file_addr + scaled_offset;
+    //printf("file addr = %p\n",file_addr);
+    //printf("scaled offset = %d\n", scaled_offset);
+    //printf("pixel location = %p\n", pixel_location);
 
     // transform this pixel location to a different color, as specified by the user
     pixel_location = &color;
@@ -302,11 +310,13 @@ void draw_rect(int x1, int y1, int width, int height, color_t c) {
             // call draw pixel on current values along x-axis
             draw_pixel(x1 + row_counter, y1, c);
             draw_pixel(x1 + row_counter, y1 + height, c);
+            //printf("drawing row %d\n", row_counter);
     }
     for (col_counter = 0; col_counter < height; col_counter++) {
             // call draw pixel on current values along y-axis
-            draw_pixel(x1, y1 + col_counter, c)
-            draw_pixel(x1 + width, y1 + col_counter, c)
+            draw_pixel(x1, y1 + col_counter, c);
+            draw_pixel(x1 + width, y1 + col_counter, c);
+            //printf("drawing col %d\n", col_counter);
     }
 }
 
@@ -367,7 +377,7 @@ void draw_text(int x, int y, const char *text, color_t c) {
 /*
  *  Helper function to draw a single character
  */
-void draw_single_character(int x, int y, const char character, color_t c) {C
+void draw_single_character(int x, int y, const char character, color_t c) {
     // index into the iso_font.h file and get a reference to the character,
     // based on its ASCII value, use the "iso_font" variable, defined in the .h file
     unsigned const char charAddressStart = iso_font[character * 16 + 0];  // this gets me the value itself....
@@ -390,7 +400,7 @@ void draw_single_character(int x, int y, const char character, color_t c) {C
             int valueOfCurrentBit = 1 << bitNum; // put a 1 at every position from from 2^0 -> 2^7, in order
             if (valueAtCurrentAddress & valueOfCurrentBit) {  /* If there's a '1' at any given bit within                                                       *
                                                                  the one byte 'integer' */
-                draw_pixel(x+bitNum, y+rowNum, color);
+                draw_pixel(x+bitNum, y+intNum, c);
             } // end-if
         } // end inner-for
     } // end outer-for
