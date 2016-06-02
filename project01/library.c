@@ -43,7 +43,7 @@ void sleep_ms(long ms);
 void draw_pixel(int x, int y, color_t color);
 void draw_rect(int x1, int y1, int width, int height, color_t c);
 void draw_text(int x, int y, const char *text, color_t c);
-void draw_char(int x, int y, const char character, color_t c);
+void draw_single_character(int x, int y, const char character, color_t c);
 
 // Global variables, which more than one function needs to access
 file_descriptor_t fd;
@@ -333,13 +333,67 @@ void draw_rect(int x1, int y1, int width, int height, color_t c) {
  *
  */
 void draw_text(int x, int y, const char *text, color_t c) {
-    // code here
+    // Assuming we get a string of text, with a null terminator,
+    // we want to call draw char on every character,
+    // until we hit a null terminator
 
+    // define vars we need to keep track of where we are
+    int charIndex;
+    charIndex = 0;
+
+    int pixelOffset;
+    pixelOffset = 0;
+
+    char currentChar;
+
+    // perform the iteration itself
+    while(text[charIndex] != '\0') {
+
+        // index into the text array and get our character value, will be ASCII
+        currentChar = text[charIndex];
+
+        // call draw pixel with our ASCII value and the pass the (x,y) values
+        draw_single_character(x + pixelOffset, y, currentChar, c);
+
+        // update the byte offset and array index
+        pixelOffset += 8; // because each character is 8 pixels, and we don't want to overlap/overwrite
+                          // no pixel offset is added for y, because prompt says we don't need to
+                          // worry about line breaking
+        charIndex++;
+    } // end-while
 }
 
 
-void draw_char(int x, int y, const char character, color_t c) {
-    // code here
+/*
+ *  Helper function to draw a single character
+ */
+void draw_single_character(int x, int y, const char character, color_t c) {C
+    // index into the iso_font.h file and get a reference to the character,
+    // based on its ASCII value, use the "iso_font" variable, defined in the .h file
+    unsigned const char charAddressStart = iso_font[character * 16 + 0];  // this gets me the value itself....
 
+    // iterate through the values assigned to the selected character,
+    // AND if the bite is set to 1, then call draw_pixel
+    unsigned char valueAtCurrentAddress;
+
+    int intNum = 0; // we'll go from 0->15 on this
+    int bitNum = 0; // we'll go from 0->256
+
+    for (intNum = 0; intNum < 16; intNum++) {
+
+        // get the row address, as outlined at: https://people.cs.pitt.edu/~jmisurda/teaching/cs1550/2167/cs1550-2167-project1.htm
+        valueAtCurrentAddress = iso_font[character*16 + intNum]; // index directly to the current 1-byte integer that represents the number,
+                                                                 // out of 16 total, 0->15
+
+        for (bitNum = 0; bitNum < 8; bitNum++ ) {
+            // use shifting and masking within each row to get the pixel at each coord
+            int valueOfCurrentBit = 1 << bitNum; // put a 1 at every position from from 2^0 -> 2^7, in order
+            if (valueAtCurrentAddress & valueOfCurrentBit) {  /* If there's a '1' at any given bit within                                                       *
+                                                                 the one byte 'integer' */
+                draw_pixel(x+bitNum, y+rowNum, color);
+            } // end-if
+        } // end inner-for
+    } // end outer-for
 }
+
 
