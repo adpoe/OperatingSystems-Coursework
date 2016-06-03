@@ -31,7 +31,7 @@
 #include <sys/types.h>
 
 // Definitions
-typedef short color_t;
+typedef unsigned short color_t;
 typedef int file_descriptor_t;
 
 // Function Prototypes
@@ -54,25 +54,6 @@ struct fb_var_screeninfo virtual_resolution;
 struct fb_fix_screeninfo bit_depth;
 int mmap_total_size;
 
-
-/*
- * Main entry point for program
- */
-/*
-int main(int argc, char *argv[]) {
-
-    // initialize the settings for our graphics library
-    init_graphics();
-
-    // do cool stuff in between
-
-    // exit and cleanup the files and memory mappings, restore ioctl
-    exit_graphics();
-
-    // clear the screen itself
-    clear_screen();
-}
-*/
 
 /*
  *  opens a graphics device by getting a handle to the first byte of the framebuffer, stored at '/dev/fb0'
@@ -124,10 +105,10 @@ void init_graphics() {
         //return;
     }
     printf("BIT_DEPTH.LINE_LENGTH (FIX_SC_INFO)= %d(bytes)\n", bit_depth.line_length);
-
-    // get mmap total size
-    mmap_total_size = virtual_resolution.yres_virtual * bit_depth.line_length;
     printf("VIRTUAL_RESOLUTION.YRES = %d\n", virtual_resolution.yres_virtual);
+    // get mmap total size
+    mmap_total_size = virtual_resolution.yres_virtual * (bit_depth.line_length/2); // line length coming out to 1280,
+                                                                                   // but we want 640
     printf("MMAP_TOTAL_SIZE = %d\n", mmap_total_size);
 
     // use mmap() to map the file we've just opened into memory
@@ -140,7 +121,7 @@ void init_graphics() {
          //return;
     }
 
-    // use the ioctl system call to disable keypress echo and buffering keypresses
+    // use the ioctl system call to disable keypress echo and buffering of keypresses
     struct termios terminal_settings_old;
     struct termios terminal_settings_new;
 
@@ -201,13 +182,13 @@ void exit_graphics() {
  * Clear the screen with ans ASCII escape code, sent to STDOUT
  */
 void clear_screen() {
-// clear screen with an ANSI escape code
-    // seven bytes, since 7 chars
+    // clear screen with an ANSI escape code
+    // 8 bytes, since 7 chars, and extra space for a '\0', if we need it
     // writing to file descriptor 1 for stdout (2 is stderr, if we need it)
-    if(write(1, "\033[2j", 7) == -1) {
+    if(write(1, "\033[2J\n", 8) == -1) {
         printf("Error clearing STDOUT\n");
         perror("Error clearing STDOUT");
-        return;
+        //return;
     };
 }
 
@@ -291,7 +272,6 @@ void draw_pixel(int x, int y, color_t color) {
 
     // transform this pixel location to a different color, as specified by the user
     pixel_location = &color;
-
 }
 
 /*
@@ -398,7 +378,7 @@ void draw_single_character(int x, int y, const char character, color_t c) {
         for (bitNum = 0; bitNum < 8; bitNum++ ) {
             // use shifting and masking within each row to get the pixel at each coord
             int valueOfCurrentBit = 1 << bitNum; // put a 1 at every position from from 2^0 -> 2^7, in order
-            if (valueAtCurrentAddress & valueOfCurrentBit) {  /* If there's a '1' at any given bit within                                                       *
+            if (valueAtCurrentAddress & valueOfCurrentBit) {  /* If there's a '1' at any given bit within
                                                                  the one byte 'integer' */
                 draw_pixel(x+bitNum, y+intNum, c);
             } // end-if
@@ -406,4 +386,19 @@ void draw_single_character(int x, int y, const char character, color_t c) {
     } // end outer-for
 }
 
+void color_entire_screen() {
+    color_t *startAddress = file_addr;
+    int x_val;
+    int y_val;
 
+    int screensize = virtual_resolution.xres_virtual * virtual_resolution.yres_virtual * (virtual_resolution.bits_per_pixel / 8);
+    int counter = 0;
+
+    while (counter < mmap_total_size/2) {
+        unsigned short color = 15;
+        //printf("StartAddress = %d\n", startAddress[counter]);
+        startAddress[counter] = color;
+        //printf("StartAddress = %d\n\n", startAddress[counter]);
+        counter++;
+    }
+}

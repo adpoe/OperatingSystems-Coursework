@@ -8,11 +8,10 @@
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <linux/fb.h>
-#include "iso_font.h"
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
-
+#include "library.c"
 
 
 int main() {
@@ -22,5 +21,7 @@ int main() {
     terminal.c_lflag |= ICANON;
     terminal.c_lflag |= ECHO;
     ioctl(0, TCSETS, &terminal);
+
+    clear_screen();
 
 }
