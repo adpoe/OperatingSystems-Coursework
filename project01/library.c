@@ -62,8 +62,8 @@ void init_graphics() {
     // definitions needed
     off_t len;
 
-    // the file at /dev/fb0, and get its file descriptor
-    fd = open("/dev/fb0", O_RDWR);  /* opens file both for reading and writing */
+    // open the file at /dev/fb0, and get its file descriptor
+    fd = open("/dev/fb0", O_RDWR);  /* O_RDWR opens file both for reading and writing */
     printf("file descriptor for fb0: %d\n", fd);
 
     if (fd == -1) {
@@ -79,7 +79,6 @@ void init_graphics() {
     }
 
     if(!S_ISREG(sb.st_mode)) {
-        fprintf(stderr, "%s is not a file\n", "/dev/fb0");
         perror("/dev/fb0 is not a file");
         //return;
     }
@@ -107,8 +106,8 @@ void init_graphics() {
     printf("BIT_DEPTH.LINE_LENGTH (FIX_SC_INFO)= %d(bytes)\n", bit_depth.line_length);
     printf("VIRTUAL_RESOLUTION.YRES = %d\n", virtual_resolution.yres_virtual);
     // get mmap total size
-    mmap_total_size = virtual_resolution.yres_virtual * (bit_depth.line_length/2); // line length coming out to 1280,
-                                                                                   // but we want 640
+    mmap_total_size = virtual_resolution.yres_virtual * (bit_depth.line_length);
+
     printf("MMAP_TOTAL_SIZE = %d\n", mmap_total_size);
 
     // use mmap() to map the file we've just opened into memory
@@ -236,9 +235,10 @@ char getkey() {
 void sleep_ms(long ms) {
     // Create a timespec struct to pass in, defined in <time.h>
     struct timespec time_spec;
-    time_spec.tv_sec = 0;
-    time_spec.tv_nsec = ms * 1000000;
+    time_spec.tv_sec = 0;             /* seconds */
+    time_spec.tv_nsec = ms * 1000000; /* nanoseconds */
 
+    // nanosleep man page:  http://linux.die.net/man/2/nanosleep
     // call nanosleep(), and check for error
     if (nanosleep(&time_spec, NULL) < 0) {   /* means we have an error */
         printf("Error at nanosleep() system call in sleep_ms\n");
@@ -256,24 +256,30 @@ void sleep_ms(long ms) {
  */
 void draw_pixel(int x, int y, color_t color) {
     // scale our values to bytes
-    char *fileIndex = file_addr;
+    char *fileIndex = file_addr; // get a character pointer, so we can index 1-byte at a time, in valid C
     int scaled_offset;
     int line_length_in_bytes = bit_depth.line_length;  // already in bytes
-    int bits_per_pixel_scaled_to_bytes = (virtual_resolution.bits_per_pixel / 8);
+    int bits_per_pixel_scaled_to_bytes = (virtual_resolution.bits_per_pixel / 8); // divide by 8 to scale from bits to bytes
 
     // use scaled values to find the offset
-    scaled_offset = (x * bits_per_pixel_scaled_to_bytes) + (y * line_length_in_bytes);
+    // How to think about Row-Major order: https://technovelty.org/static/images/row-major-order.png
+    scaled_offset = (x * bits_per_pixel_scaled_to_bytes) + (y * line_length_in_bytes); // x takes us 'horizontally' in a row
+                                                                                       // y takes us 'vertically',
+                                                                                       // and we can achieve that by multiplying
+                                                                                       // by length of whole line
 
     // get location of pixel to draw, within our memory map
     color_t *pixel_location;
     pixel_location = file_addr + scaled_offset;
+
+    /* ------- DEBUG CODE ---------------
     //printf("file addr = %p\n",file_addr);
     //printf("scaled offset = %d\n", scaled_offset);
     //printf("pixel location = %p\n", pixel_location);
+    ---------- END DEBUG CODE ----------- */
 
     // transform this pixel location to a different color, as specified by the user
-    //pixel_location = &color;
-    fileIndex[scaled_offset] = color;
+    fileIndex[scaled_offset] = color; // just index into it directly, since we have a 'char'
 }
 
 /*
@@ -283,22 +289,45 @@ void draw_pixel(int x, int y, color_t color) {
  *                                                   (x1, y1+height)
  */
 void draw_rect(int x1, int y1, int width, int height, color_t c) {
-    // initialize rows and columns
+    // initialize rows and column variables
     int row_counter;
     int col_counter;
 
-    // iterate and draw our pixels
+    /* iterate and draw our pixels */
+
+    // draw by row
     for (row_counter = 0; row_counter < width; row_counter++) {
             // call draw pixel on current values along x-axis
-            draw_pixel(x1 + row_counter, y1, c);
-            draw_pixel(x1 + row_counter, y1 + height, c);
+            draw_pixel(x1 + row_counter, y1 + height, c);   // 'top' row
+            draw_pixel(x1 + row_counter, y1, c);            // 'bottom' row
             //printf("drawing row %d\n", row_counter);
+
+            /*      ACTION
+             *   x - - - - - > y1 + height   (top row)
+             *
+             *
+             *
+             *   x - - - - - > y1            (bottom row)
+             *         ^
+             *        width
+             */
     }
+
+    // draw by column
     for (col_counter = 0; col_counter < height; col_counter++) {
             // call draw pixel on current values along y-axis
-            draw_pixel(x1, y1 + col_counter, c);
-            draw_pixel(x1 + width, y1 + col_counter, c);
+            draw_pixel(x1, y1 + col_counter, c);           // 'left' column
+            draw_pixel(x1 + width, y1 + col_counter, c);   // 'right' column, with the width offset
             //printf("drawing col %d\n", col_counter);
+
+            /*           ACTION
+             *    ^                  ^
+             *    .                  .             where dots are the col counters, as they increment
+             *    .                  . < height
+             *    .                  .
+             *    x                  x + width
+             * left col           right col
+             */
     }
 }
 
@@ -339,18 +368,19 @@ void draw_text(int x, int y, const char *text, color_t c) {
     char currentChar;
 
     // perform the iteration itself
-    while(text[charIndex] != '\0') {
+    while(text[charIndex] != '\0') { /* index into the text array we are given, starting at 0
+                                        and keep going until we index into a null char, signifying EOS  */
 
         // index into the text array and get our character value, will be ASCII
-        currentChar = text[charIndex];
+        currentChar = text[charIndex];  // assign it this time, so we can have a handle to the value we're using
 
         // call draw pixel with our ASCII value and the pass the (x,y) values
         draw_single_character(x + pixelOffset, y, currentChar, c);
 
         // update the byte offset and array index
-        pixelOffset += 8; // because each character is 8 pixels, and we don't want to overlap/overwrite
+        pixelOffset += 8; // because each character is 8x16 pixels, and we don't want to overlap/overwrite
                           // no pixel offset is added for y, because prompt says we don't need to
-                          // worry about line breaking
+                          // worry about line breaking, so not considering moving down 16 pixels at EOL, yet...
         charIndex++;
     } // end-while
 }
@@ -362,14 +392,14 @@ void draw_text(int x, int y, const char *text, color_t c) {
 void draw_single_character(int x, int y, const char character, color_t c) {
     // index into the iso_font.h file and get a reference to the character,
     // based on its ASCII value, use the "iso_font" variable, defined in the .h file
-    unsigned const char charAddressStart = iso_font[character * 16 + 0];  // this gets me the value itself....
+    char charAddressStart = iso_font[character * 16 + 0];  // this gets me the value itself....
 
     // iterate through the values assigned to the selected character,
     // AND if the bite is set to 1, then call draw_pixel
-    unsigned char valueAtCurrentAddress;
+    char valueAtCurrentAddress;
 
-    int intNum = 0; // we'll go from 0->15 on this
-    int bitNum = 0; // we'll go from 0->256
+    int intNum = 0; // we'll go from 0->15 on this -- this is the number of 'rows' mapped to each character
+    int bitNum = 0; // we'll go from 0->8 on this  -- this is the number of 'columns' mapped to each character
 
     for (intNum = 0; intNum < 16; intNum++) {
 
@@ -380,14 +410,30 @@ void draw_single_character(int x, int y, const char character, color_t c) {
         for (bitNum = 0; bitNum < 8; bitNum++ ) {
             // use shifting and masking within each row to get the pixel at each coord
             int valueOfCurrentBit = 1 << bitNum; // put a 1 at every position from from 2^0 -> 2^7, in order
-            if (valueAtCurrentAddress & valueOfCurrentBit) {  /* If there's a '1' at any given bit within
-                                                                 the one byte 'integer' */
-                draw_pixel(x+bitNum, y+intNum, c);
+            int checkValue = valueAtCurrentAddress & valueOfCurrentBit; // AND the value at current bit with the
+                                                                        // value at our memory address for the character
+                                                                        // we're indexing into within the 'array' inside
+                                                                        // the ISO_FONT header file
+            if (checkValue != 0) {  /* If there's a '1' at any given bit within
+                                       the one byte 'integer', then we know that
+                                       we had a match for our current bit/iteration */
+                draw_pixel(x+bitNum, y+intNum, c);   // bits are on 'x-axis' and intNum is on 'y-axis'
+                                                     // as we draw directly from font array into our memory map
             } // end-if
+
+            else continue; // else, just keep iterating, we don't draw this bit, because it's not a 1
+                           // and hence, there wasn't a match
+
         } // end inner-for
     } // end outer-for
 }
 
+
+/*
+ * Test function used to make sure the memory map to the framebuffer at /dev/fb0
+ * is working as expected, and that we can indeed change colors at the specified location
+ *
+ */
 void color_entire_screen() {
     color_t *startAddress = file_addr;
     int x_val;
@@ -396,7 +442,11 @@ void color_entire_screen() {
     int screensize = virtual_resolution.xres_virtual * virtual_resolution.yres_virtual * (virtual_resolution.bits_per_pixel / 8);
     int counter = 0;
 
-    while (counter < mmap_total_size/2) {
+    while (counter < mmap_total_size/2) { // divide by 2 so that we just color top half of the screen
+
+        /* color screen blue, with RGB 15 --> 00000 000000 01111
+         *                                      R     G      B        */
+
         unsigned short color = 15;
         //printf("StartAddress = %d\n", startAddress[counter]);
         startAddress[counter] = color;
