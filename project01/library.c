@@ -256,6 +256,7 @@ void sleep_ms(long ms) {
  */
 void draw_pixel(int x, int y, color_t color) {
     // scale our values to bytes
+    char *fileIndex = file_addr;
     int scaled_offset;
     int line_length_in_bytes = bit_depth.line_length;  // already in bytes
     int bits_per_pixel_scaled_to_bytes = (virtual_resolution.bits_per_pixel / 8);
@@ -271,7 +272,8 @@ void draw_pixel(int x, int y, color_t color) {
     //printf("pixel location = %p\n", pixel_location);
 
     // transform this pixel location to a different color, as specified by the user
-    pixel_location = &color;
+    //pixel_location = &color;
+    fileIndex[scaled_offset] = color;
 }
 
 /*
