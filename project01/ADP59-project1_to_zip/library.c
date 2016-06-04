@@ -264,16 +264,6 @@ void draw_pixel(int x, int y, color_t color) {
                                                                                        // and we can achieve that by multiplying
                                                                                        // by length of whole line
 
-    // get location of pixel to draw, within our memory map
-    color_t *pixel_location;
-    pixel_location = file_addr + scaled_offset;
-
-    /* ------- DEBUG CODE ---------------
-    //printf("file addr = %p\n",file_addr);
-    //printf("scaled offset = %d\n", scaled_offset);
-    //printf("pixel location = %p\n", pixel_location);
-    ---------- END DEBUG CODE ----------- */
-
     // transform this pixel location to a different color, as specified by the user
     fileIndex[scaled_offset] = color; // just index into it directly, since we have a 'char'
 }
