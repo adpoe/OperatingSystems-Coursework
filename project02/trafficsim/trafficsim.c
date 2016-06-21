@@ -17,7 +17,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/wait.h>
-//#include <linux/spinlock.h>
+#include <linux/spinlock.h>
 #include "simple_queue.c"
 
 // DEFINITIONS
@@ -32,6 +32,7 @@ int travelTime=2; /* seconds */
 #define BUFFER_MAX 10
 
 typedef struct SharedMemoryQueue {
+    bool carArrived;
     int readIndex;
     int writeIndex;
     int buffer[BUFFER_MAX];
@@ -63,6 +64,15 @@ typedef struct Road {
 // FUNCTION PROTOTYPES
 void producer(Road *road_ptr);
 void consumer(Road *road_ptr);
+
+// SEMAPHORES
+struct cs1550_sem north_sem_empty;
+struct cs1550_sem north_sem_full;
+
+struct cs1550_sem south_sem_empty;
+struct cs1550_sem soutth_sem_full;
+
+struct cs1550_sem sem_mutex;
 
 /* ---------- SEMAPHORES -------------- */
 // --> TODO:  Semaphore data type
@@ -146,8 +156,18 @@ bool carArrives() {
     return arrivalDecision;
 }
 
-void producer(Road *road_ptr) {
-
+void honkHornIfneeded(Flagperson *flagperson) {
+   if (flagperson->isAsleep == true) {
+      flagperson->isAsleep = false; 
+   }
+}
+/* may need a separate producer function for EACH road... 
+ * so they can each have a separate value....
+ * but then they might need to each call a diferent consumer function...
+ * which is okay, as long as everything shares one mutex...
+ */
+void north_road_producer(Road *road_ptr) {
+    SharedMemoryQueue northRoad = road_ptr->northRoad;
     // also needs to be a while(1) loop, so that it runs forever
     // ANY TIME No Car arrives, wait 20 seconds, THEN a new car MUST come.
     // Applies to both directions... each separately.
@@ -155,12 +175,35 @@ void producer(Road *road_ptr) {
     down(&sem_mutex);  // consume the mutex
     while (true) {
         // start producing! as per the logic in the assignment prompt
+        // check if a car is arriving on on the northroad
+        northRoad.carArrived = carArrives(); 
+        if (northRoad.carArrived == false) {
+            // wait 20 seconds
+        } else {
+            // add car to the buffer, check if car arrived again
+        }
+       
+    }
+    up(&sem_mutex); // release the mutex when we're done
+    up(&sem_full);  // produce a space in the buffer that can later be consumed
+}
+
+void south_road_producer(Road *road_ptr) {
+    // also needs to be a while(1) loop, so that it runs forever
+    // ANY TIME No Car arrives, wait 20 seconds, THEN a new car MUST come.
+    // Applies to both directions... each separately.
+    down(&sem_empty);  // consume and empty space, when we fill it
+    down(&sem_mutex);  // consume the mutex
+    while (true) {
+        // start producing! as per the logic in the assignment prompt
+       
     }
     up(&sem_mutex); // release the mutex when we're done
     up(&sem_full);  // produce a space in the buffer that can later be consumed
 }
 
 void consumer(Road *road_ptr) {
+    flagperson = road_ptr->flagperson;
     /* Ensure we can access ands et set values correctly on our Road Model, via the ptr passed in */
     // ------------ DEBUG --------------
     // road_ptr->flagperson.roadInUse = true;
@@ -172,11 +215,33 @@ void consumer(Road *road_ptr) {
     down(&sem_mutex); // consumes the mutex
     while(true) {
         // start consuming! as per the logic defined in the assignment prompt
+              
+        // check if we need to sleep
+        if (flagperson->lineLengthNorth == 0 && flagperson->lineLengthSouth == 0) {
+            // fall asleep...
+           flagperson->isAsleep = true; 
+        }
+ 
+ 
+        // these will strictly alternate if both are >10... so should be okay.
+        if (flagperson->lineLengthNorth > 0 && flagperson->isAsleep == false) {
+           // let a car pass from north to south, ensure it takes 2 seconds,
+           // and no other cars can use the road during this time
+           // let cars pass WHILE lineLengthSouth < 10 && lineLengthNorth > 0
+           // WHILE ...
+           //     call honkHorn
+        }
+
+        if (flagperson->lineLengthSouth > 0 && flagperson0>isAsleep == false) {
+            
+            // let cars pass from south, and ensure ti takes 2 seconds,
+            // WHILE lineLengthNorth < 10 && lineLengthSouth > 0
+            // WHILE ... 
+            //    call honkHorn
+        }
     }
     up(&sem_mutex); // releases the mutex
     up(&sem_empty); // produces an empty space, by consuming an item
-
-
 
 }
 
@@ -238,19 +303,10 @@ void runSimulation(void *mmap_region_ptr) {
 
 
 int main() {
-
     // TODO:  Store these in shared memory
-    // SEMAPHORES
-    struct cs1550_sem sem_empty;
     sem_empty.value = BUFFER_MAX;
-
-    struct cs1550_sem sem_full;
     sem_full.value = 0;
-
-    struct cs1550_sem sem_mutex;
     sem_mutex.value = 1;
-
-
     // main method for the whole project
     //
     // Basic outline...
@@ -258,7 +314,9 @@ int main() {
     int northRoadSize  = sizeof(SharedMemoryQueue);
     int southRoadSize  = sizeof(SharedMemoryQueue);
     int flagpersonSize = sizeof(Flagperson);
+    // TODO:  Do I want to store the sempahores in shared memory, too? int semaphoreSize; 
     int totalSharedMemoryNeeded = northRoadSize + southRoadSize + flagpersonSize;
+
 
     void *mmap_region_start_ptr = mapSharedMemory(totalSharedMemoryNeeded);
     // create a road struct
