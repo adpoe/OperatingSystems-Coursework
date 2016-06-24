@@ -17,7 +17,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <linux/spinlock.h>
+// #include <linux/spinlock.h> TODO: Figure out how to actually build the kernel source and make a spinlock...
 #include "simple_queue.c"
 
 // DEFINITIONS
@@ -39,8 +39,8 @@ typedef struct SharedMemoryQueue {
     int used_spaces;
     int counter;
     int total;
-} SharedMemoryQueue;  /* TODO:  Can open this in the memory mapped region.
-                             Inside Producer/Consumer */
+} SharedMemoryQueue;
+
 
 typedef struct Flagperson {
    // Consumer *flagperson;
@@ -54,28 +54,25 @@ typedef struct Road {
     SharedMemoryQueue northRoad;
     SharedMemoryQueue southRoad;
     Flagperson flagperson;
-} Road;  /* TODO: Model this using processes instead.....
-                  fork a process, send it into a while loop
-                  like in the example from 449... where it loops on
-                  making rand number, if < 8 add another car
-                  else wait 20 seconds then add another car... */
+} Road;
 
 
 // FUNCTION PROTOTYPES
 void producer(Road *road_ptr);
 void consumer(Road *road_ptr);
 
+/* ---------- SEMAPHORES -------------- */
+/*
+// --> TODO:  Implement my own custom semaphores.
 // SEMAPHORES
 struct cs1550_sem north_sem_empty;
 struct cs1550_sem north_sem_full;
 
 struct cs1550_sem south_sem_empty;
-struct cs1550_sem soutth_sem_full;
+struct cs1550_sem south_sem_full;
 
 struct cs1550_sem sem_mutex;
 
-/* ---------- SEMAPHORES -------------- */
-// --> TODO:  Semaphore data type
 struct cs1550_sem {
     int value; // how many items we have access to
     Queue *process_list;
@@ -106,8 +103,7 @@ void up(struct cs1550_sem *sem) {
     spin_unlock(&sem_lock);
 }
 
-/*
-// SEMAPHORES
+// SEMAPHORES declarations, the values they should have
 struct cs1550_sem sem_empty;
 sem_empty.value = BUFFER_MAX;
 
@@ -158,10 +154,10 @@ bool carArrives() {
 
 void honkHornIfneeded(Flagperson *flagperson) {
    if (flagperson->isAsleep == true) {
-      flagperson->isAsleep = false; 
+      flagperson->isAsleep = false;
    }
 }
-/* may need a separate producer function for EACH road... 
+/* may need a separate producer function for EACH road...
  * so they can each have a separate value....
  * but then they might need to each call a diferent consumer function...
  * which is okay, as long as everything shares one mutex...
@@ -176,13 +172,13 @@ void north_road_producer(Road *road_ptr) {
     while (true) {
         // start producing! as per the logic in the assignment prompt
         // check if a car is arriving on on the northroad
-        northRoad.carArrived = carArrives(); 
+        northRoad.carArrived = carArrives();
         if (northRoad.carArrived == false) {
             // wait 20 seconds
         } else {
             // add car to the buffer, check if car arrived again
         }
-       
+
     }
     up(&sem_mutex); // release the mutex when we're done
     up(&sem_full);  // produce a space in the buffer that can later be consumed
@@ -196,7 +192,7 @@ void south_road_producer(Road *road_ptr) {
     down(&sem_mutex);  // consume the mutex
     while (true) {
         // start producing! as per the logic in the assignment prompt
-       
+
     }
     up(&sem_mutex); // release the mutex when we're done
     up(&sem_full);  // produce a space in the buffer that can later be consumed
@@ -215,14 +211,14 @@ void consumer(Road *road_ptr) {
     down(&sem_mutex); // consumes the mutex
     while(true) {
         // start consuming! as per the logic defined in the assignment prompt
-              
+
         // check if we need to sleep
         if (flagperson->lineLengthNorth == 0 && flagperson->lineLengthSouth == 0) {
             // fall asleep...
-           flagperson->isAsleep = true; 
+           flagperson->isAsleep = true;
         }
- 
- 
+
+
         // these will strictly alternate if both are >10... so should be okay.
         if (flagperson->lineLengthNorth > 0 && flagperson->isAsleep == false) {
            // let a car pass from north to south, ensure it takes 2 seconds,
@@ -232,11 +228,11 @@ void consumer(Road *road_ptr) {
            //     call honkHorn
         }
 
-        if (flagperson->lineLengthSouth > 0 && flagperson0>isAsleep == false) {
-            
+        if (flagperson->lineLengthSouth > 0 && flagperson->isAsleep == false) {
+
             // let cars pass from south, and ensure ti takes 2 seconds,
             // WHILE lineLengthNorth < 10 && lineLengthSouth > 0
-            // WHILE ... 
+            // WHILE ...
             //    call honkHorn
         }
     }
@@ -314,7 +310,7 @@ int main() {
     int northRoadSize  = sizeof(SharedMemoryQueue);
     int southRoadSize  = sizeof(SharedMemoryQueue);
     int flagpersonSize = sizeof(Flagperson);
-    // TODO:  Do I want to store the sempahores in shared memory, too? int semaphoreSize; 
+    // TODO:  Do I want to store the sempahores in shared memory, too? int semaphoreSize;
     int totalSharedMemoryNeeded = northRoadSize + southRoadSize + flagpersonSize;
 
 
