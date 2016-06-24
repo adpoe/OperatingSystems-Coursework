@@ -171,16 +171,19 @@ bool carArrives() {
     bool arrivalDecision;
 
     int randNum = rand() % 10;
-    if (randNum > 8)
+    if (randNum < 8)
         arrivalDecision = true;
     else
         arrivalDecision = false;
+
+    printf("Car arrives called by %d and returned: %d\n\n", getpid(), arrivalDecision);
 
     return arrivalDecision;
 }
 
 void honkHornIfneeded(Flagperson *flagperson) {
    if (flagperson->isAsleep == true) {
+      printf("HONK CALLED by PID: %d\n\n", getpid());
       flagperson->isAsleep = false;
    }
 }
@@ -215,7 +218,7 @@ void north_road_producer(Road *road_ptr) {
             // [ CRITICAL SECTION ]
             // add car to the buffer, check if car arrived again
             northRoad->buffer[northRoad->writeIndex] = northRoad->total++;
-            printf("NORTH ROAD PRODUCER:   Produced NorthRoad:%d\n", northRoad->buffer[northRoad->writeIndex]);
+            printf("NORTH ROAD PRODUCER:   Produced NorthRoad:%d\n\n", northRoad->buffer[northRoad->writeIndex]);
 
             northRoad->writeIndex = (northRoad->writeIndex + 1) % BUFFER_MAX;
             northRoad->counter++;
@@ -259,7 +262,7 @@ void south_road_producer(Road *road_ptr) {
             // [ CRITICAL SECTION ]
             // add car to the buffer, check if car arrived again
             southRoad->buffer[southRoad->writeIndex] = southRoad->total++;
-            printf("SOUTH ROAD PRODUCER:   Produced SouthRoad:%d\n", southRoad->buffer[southRoad->writeIndex]);
+            printf("SOUTH ROAD PRODUCER:   Produced SouthRoad:%d\n\n", southRoad->buffer[southRoad->writeIndex]);
 
             southRoad->writeIndex = (southRoad->writeIndex + 1) % BUFFER_MAX;
             southRoad->counter++;
@@ -298,15 +301,18 @@ void consumer(Road *road_ptr) {
         // start consuming! as per the logic defined in the assignment prompt
 
         // check if we need to sleep
-        if (northRoad->counter  == 0 && southRoad->counter == 0) {
+        if (flagperson->isAsleep == false && northRoad->counter == 0 && southRoad->counter == 0) {
             // fall asleep...
+            sem_wait(&road_ptr->sem_mutex);
+            printf("There are no cars in either line. Flagperson has fallen asleep....\n\n");
             flagperson->isAsleep = true;
+            sem_post(&road_ptr->sem_mutex);
         }
 
 
         // these will strictly alternate if both are >10... so should be okay.
         // CONSUME NORTH
-        if (northRoad->counter > 0 && flagperson->isAsleep == false) {
+        if (northRoad->counter > 0 /*&& flagperson->isAsleep == false*/) {
                // POSIX STYLE DOWN()
             sem_wait(&road_ptr->north_sem_full);
             sem_wait(&road_ptr->sem_mutex);
@@ -316,7 +322,7 @@ void consumer(Road *road_ptr) {
             // and no other cars can use the road during this time
             do {
             honkHornIfneeded(flagperson);
-            printf("\tCONSUMED:   NorthRoad #%d\n", northRoad->buffer[northRoad->readIndex]);
+            printf("\tCONSUMED:   NorthRoad #%d\n\n", northRoad->buffer[northRoad->readIndex]);
             northRoad->readIndex = (northRoad->readIndex + 1) % BUFFER_MAX;
             northRoad->counter--; // this is the line length....
             sleep(2);
@@ -332,7 +338,7 @@ void consumer(Road *road_ptr) {
         }
 
         // CONSUME SOUTH
-        if (southRoad->counter > 0 && flagperson->isAsleep == false) {
+        if (southRoad->counter > 0 /*&& flagperson->isAsleep == false*/) {
                // POSIX STYLE DOWN()
             sem_wait(&road_ptr->south_sem_full);
             sem_wait(&road_ptr->sem_mutex);
@@ -342,7 +348,7 @@ void consumer(Road *road_ptr) {
             // and no other cars can use the road during this time
             do {
             honkHornIfneeded(flagperson);
-            printf("\tCONSUMED:   SouthRoad #%d\n", southRoad->buffer[southRoad->readIndex]);
+            printf("\tCONSUMED:   SouthRoad #%d\n\n", southRoad->buffer[southRoad->readIndex]);
             southRoad->readIndex = (southRoad->readIndex + 1) % BUFFER_MAX;
             southRoad->counter--; // this is the line length....
             sleep(2);
@@ -432,9 +438,31 @@ int main() {
 
     void *mmap_region_start_ptr = mapSharedMemory(totalSharedMemoryNeeded);
     // create a road struct
-    Road *myRoad = malloc(sizeof(Road));
-    printf("Road size is: %d\n", (int)sizeof(Road));
-    printf("Memory size is: %d\n", totalSharedMemoryNeeded);
+    //Road *myRoad = malloc(sizeof(Road));
+    //printf("Road size is: %d\n", (int)sizeof(Road));
+    //printf("Memory size is: %d\n", totalSharedMemoryNeeded);
+
+    Road *myRoad = mmap_region_start_ptr;
+
+    /* INITIALIZE FIELDS */
+    // NORTH ROAD
+    myRoad->northRoad.carArrived = false;
+    myRoad->northRoad.readIndex = 0;
+    myRoad->northRoad.writeIndex = 0;
+    myRoad->northRoad.counter = 0;
+    myRoad->northRoad.total = 0;
+
+    // SOUTH ROAD
+    myRoad->southRoad.carArrived = false;
+    myRoad->southRoad.readIndex = 0;
+    myRoad->southRoad.writeIndex = 0;
+    myRoad->southRoad.counter = 0;
+    myRoad->southRoad.total = 0;
+
+    // FLAGPERSON
+    myRoad->flagperson.roadInUse = false;
+    myRoad->flagperson.isAsleep = false;
+    /* END INITIALIZATION */
 
     // start the simulation
     runSimulation(mmap_region_start_ptr);
