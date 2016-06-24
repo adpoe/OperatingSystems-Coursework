@@ -54,6 +54,16 @@ typedef struct Road {
     SharedMemoryQueue northRoad;
     SharedMemoryQueue southRoad;
     Flagperson flagperson;
+
+    // Space for semaphores
+    // POSIX SEMAPHORES     TODO:  Use these to ensure that TrafficSim works, first and foremost
+    sem_t north_sem_empty;
+    sem_t north_sem_full;
+
+    sem_t south_sem_empty;
+    sem_t south_sem_full;
+
+    sem_t sem_mutex;
 } Road;
 
 
@@ -125,15 +135,32 @@ sem_mutex.value = 1;
  */
 void *mapSharedMemory(int N) {
     // code to do the memory mapping goes here
-    void *mmmap_region_start = mmap(NULL, N, PROT_READ|PROT_WRITE,
+    void *mmap_region_start = mmap(NULL, N, PROT_READ|PROT_WRITE,
             MAP_SHARED|MAP_ANONYMOUS, 0, 0);
 
-    if (mmmap_region_start == MAP_FAILED) {
+    if (mmap_region_start == MAP_FAILED) {
          perror("Memory mapping failed");
          exit(-1);
     }
 
-    return mmmap_region_start;
+    /*------------ INITIALIZE OUR SEMAPHORES ------------ */
+    Road *myRoad = mmap_region_start; // The region is a road struct.
+    // TODO:  Initalize our smaphores....
+    // Notes at:  http://www.csc.villanova.edu/~mdamian/threads/posixsem.html
+    // http://man7.org/linux/man-pages/man3/sem_init.3.html
+    //     Re: Semaphores -> If semaphore is shared between processes, should be
+    //     in a region of shared memory, and set 2nd flag to nonzero
+    sem_init(&myRoad->north_sem_empty, 1, BUFFER_MAX); // empty semaphore starts with size of buffer
+    sem_init(&myRoad->north_sem_full, 1, 0); // when we start, there are no full spaces
+
+    sem_init(&myRoad->south_sem_empty, 1, BUFFER_MAX);
+    sem_init(&myRoad->south_sem_full, 1, 0);
+
+    sem_init(&myRoad->sem_mutex, 1, 1); // mutexes start with 1 since we have 1 critical region
+    /*---------------- END INITIALIZATION ---------------- */
+
+
+    return mmap_region_start;
 }
 
 /*
@@ -167,8 +194,14 @@ void north_road_producer(Road *road_ptr) {
     // also needs to be a while(1) loop, so that it runs forever
     // ANY TIME No Car arrives, wait 20 seconds, THEN a new car MUST come.
     // Applies to both directions... each separately.
-    down(&sem_empty);  // consume and empty space, when we fill it
-    down(&sem_mutex);  // consume the mutex
+
+    // TODO:   Change this so we can use MY own DOWN() and UP() semaphores
+    //down(&sem_empty);  // consume and empty space, when we fill it
+    //down(&sem_mutex);  // consume the mutex
+
+    // Use POSIX Semaphores to start --> DOWN()
+    sem_wait(&road_ptr->north_sem_empty);
+    sem_wait(&road_ptr->sem_mutex);
     while (true) {
         // start producing! as per the logic in the assignment prompt
         // check if a car is arriving on on the northroad
@@ -180,26 +213,42 @@ void north_road_producer(Road *road_ptr) {
         }
 
     }
-    up(&sem_mutex); // release the mutex when we're done
-    up(&sem_full);  // produce a space in the buffer that can later be consumed
+    // POSIX Semaphores --> UP()
+    sem_post(&road_ptr->sem_mutex);
+    sem_post(&road_ptr->north_sem_full);
+
+    // TODO: USE MY SEMAPHORES --> UP()
+    //up(&sem_mutex); // release the mutex when we're done
+    //up(&sem_full);  // produce a space in the buffer that can later be consumed
 }
 
 void south_road_producer(Road *road_ptr) {
     // also needs to be a while(1) loop, so that it runs forever
     // ANY TIME No Car arrives, wait 20 seconds, THEN a new car MUST come.
     // Applies to both directions... each separately.
-    down(&sem_empty);  // consume and empty space, when we fill it
-    down(&sem_mutex);  // consume the mutex
+    // TODO:  USE MY SEMAPHORES --> DOWN()
+    //down(&sem_empty);  // consume and empty space, when we fill it
+    ///down(&sem_mutex);  // consume the mutex
+
+    // Use POSIX Semaphores to start --> DOWN()
+    sem_wait(&road_ptr->south_sem_empty);
+    sem_wait(&road_ptr->sem_mutex);
     while (true) {
         // start producing! as per the logic in the assignment prompt
 
     }
-    up(&sem_mutex); // release the mutex when we're done
-    up(&sem_full);  // produce a space in the buffer that can later be consumed
+    // POSIX Semaphores --> UP()
+    sem_post(&road_ptr->sem_mutex);
+    sem_post(&road_ptr->south_sem_full);
+
+
+    // TODO:  USE MY UP()
+    //up(&sem_mutex); // release the mutex when we're done
+    //up(&sem_full);  // produce a space in the buffer that can later be consumed
 }
 
 void consumer(Road *road_ptr) {
-    flagperson = road_ptr->flagperson;
+    Flagperson *flagperson = &road_ptr->flagperson;
     /* Ensure we can access ands et set values correctly on our Road Model, via the ptr passed in */
     // ------------ DEBUG --------------
     // road_ptr->flagperson.roadInUse = true;
@@ -207,37 +256,62 @@ void consumer(Road *road_ptr) {
     // printf("Flagperson_ptr->roadInUse = %d\n", road_ptr->flagperson.roadInUse);
     // ----------- END DEBUG ------------
     // this needs to a be a while(1) loop, so that it runs forever...
-    down(&sem_full);  // consumes a full space in the buffer
-    down(&sem_mutex); // consumes the mutex
+    // TODO:   USE MY SEMAHORES
+    //down(&sem_full);  // consumes a full space in the buffer
+    //down(&sem_mutex); // consumes the mutex
+
     while(true) {
         // start consuming! as per the logic defined in the assignment prompt
 
         // check if we need to sleep
         if (flagperson->lineLengthNorth == 0 && flagperson->lineLengthSouth == 0) {
             // fall asleep...
-           flagperson->isAsleep = true;
+            flagperson->isAsleep = true;
         }
 
 
         // these will strictly alternate if both are >10... so should be okay.
+        // CONSUME NORTH
         if (flagperson->lineLengthNorth > 0 && flagperson->isAsleep == false) {
            // let a car pass from north to south, ensure it takes 2 seconds,
            // and no other cars can use the road during this time
            // let cars pass WHILE lineLengthSouth < 10 && lineLengthNorth > 0
            // WHILE ...
            //     call honkHorn
+
+            // POSIX STYLE DOWN()
+            sem_wait(&road_ptr->north_sem_full);
+            sem_wait(&road_ptr->sem_mutex);
+
+            // [ CRITICAL SECTION ]
+
+            // POSIX STYLE UP()
+            sem_post(&road_ptr->sem_mutex);
+            sem_post(&road_ptr->north_sem_empty);
+
+
         }
 
+        // CONSUME SOUTH
         if (flagperson->lineLengthSouth > 0 && flagperson->isAsleep == false) {
 
             // let cars pass from south, and ensure ti takes 2 seconds,
             // WHILE lineLengthNorth < 10 && lineLengthSouth > 0
             // WHILE ...
             //    call honkHorn
+
+            // POSIX STYLE DOWN()
+            sem_wait(&road_ptr->south_sem_full);
+            sem_wait(&road_ptr->sem_mutex);
+
+            // [ CRITICAL SECTION ]
+
+            // POSIX STYLE UP()
+            sem_post(&road_ptr->sem_mutex);
+            sem_post(&road_ptr->south_sem_empty);
+
         }
     }
-    up(&sem_mutex); // releases the mutex
-    up(&sem_empty); // produces an empty space, by consuming an item
 
 }
 
@@ -273,7 +347,7 @@ void runSimulation(void *mmap_region_ptr) {
 
     if (pid_northRoad == 0) {
         printf("I am the child with pid %d\n", (int) getpid());
-        producer(myRoad);
+        north_road_producer(myRoad);
         exit(0); // ensure child only does work inside this if statement
     }
     // ------ END NORTH ROAD -----------
@@ -289,7 +363,7 @@ void runSimulation(void *mmap_region_ptr) {
 
     if (pid_southRoad == 0) {
         printf("I am the child with pid %d\n", (int) getpid());
-        producer(myRoad);
+        south_road_producer(myRoad);
         exit(0); // ensure child only does work inside this if statement
     }
     // --------- END SOUTH ROAD -----------
@@ -299,10 +373,6 @@ void runSimulation(void *mmap_region_ptr) {
 
 
 int main() {
-    // TODO:  Store these in shared memory
-    sem_empty.value = BUFFER_MAX;
-    sem_full.value = 0;
-    sem_mutex.value = 1;
     // main method for the whole project
     //
     // Basic outline...
@@ -310,8 +380,8 @@ int main() {
     int northRoadSize  = sizeof(SharedMemoryQueue);
     int southRoadSize  = sizeof(SharedMemoryQueue);
     int flagpersonSize = sizeof(Flagperson);
-    // TODO:  Do I want to store the sempahores in shared memory, too? int semaphoreSize;
-    int totalSharedMemoryNeeded = northRoadSize + southRoadSize + flagpersonSize;
+    int sizeOfAllSemaphores = sizeof(sem_t)*5;
+    int totalSharedMemoryNeeded = northRoadSize + southRoadSize + flagpersonSize + sizeOfAllSemaphores;
 
 
     void *mmap_region_start_ptr = mapSharedMemory(totalSharedMemoryNeeded);
@@ -319,10 +389,6 @@ int main() {
     Road *myRoad = malloc(sizeof(Road));
     printf("Road size is: %d\n", (int)sizeof(Road));
     printf("Memory size is: %d\n", totalSharedMemoryNeeded);
-
-    // TODO:  Initalize our smaphores....
-    //sem_init(&semfull, 0, 0);
-    //sem_init(&semempty, 0, N);
 
     // start the simulation
     runSimulation(mmap_region_start_ptr);
