@@ -190,7 +190,7 @@ void honkHornIfneeded(Flagperson *flagperson) {
  * which is okay, as long as everything shares one mutex...
  */
 void north_road_producer(Road *road_ptr) {
-    SharedMemoryQueue northRoad = road_ptr->northRoad;
+    SharedMemoryQueue *northRoad = &road_ptr->northRoad;
     // also needs to be a while(1) loop, so that it runs forever
     // ANY TIME No Car arrives, wait 20 seconds, THEN a new car MUST come.
     // Applies to both directions... each separately.
@@ -199,23 +199,34 @@ void north_road_producer(Road *road_ptr) {
     //down(&sem_empty);  // consume and empty space, when we fill it
     //down(&sem_mutex);  // consume the mutex
 
-    // Use POSIX Semaphores to start --> DOWN()
-    sem_wait(&road_ptr->north_sem_empty);
-    sem_wait(&road_ptr->sem_mutex);
-    while (true) {
+        while (true) {
         // start producing! as per the logic in the assignment prompt
         // check if a car is arriving on on the northroad
-        northRoad.carArrived = carArrives();
-        if (northRoad.carArrived == false) {
-            // wait 20 seconds
-        } else {
+        northRoad->carArrived = carArrives();
+        if (northRoad->carArrived == false) {
+            // wait 20 seconds, without the mutex
+            sleep(20);
+
+        } else { /* else, we enter the critical section and start writing */
+            // Use POSIX Semaphores to start --> DOWN()
+            sem_wait(&road_ptr->north_sem_empty);
+            sem_wait(&road_ptr->sem_mutex);
+
+            // [ CRITICAL SECTION ]
             // add car to the buffer, check if car arrived again
+            northRoad->buffer[northRoad->writeIndex] = northRoad->total++;
+            printf("NORTH ROAD PRODUCER:   Produced NorthRoad:%d\n", northRoad->buffer[northRoad->writeIndex]);
+
+            northRoad->writeIndex = (northRoad->writeIndex + 1) % BUFFER_MAX;
+            northRoad->counter++;
+            // [ END CRITICAL SECTION ]
+
+            // POSIX Semaphores --> UP()
+            sem_post(&road_ptr->sem_mutex);
+            sem_post(&road_ptr->north_sem_full);
         }
 
     }
-    // POSIX Semaphores --> UP()
-    sem_post(&road_ptr->sem_mutex);
-    sem_post(&road_ptr->north_sem_full);
 
     // TODO: USE MY SEMAPHORES --> UP()
     //up(&sem_mutex); // release the mutex when we're done
@@ -230,16 +241,36 @@ void south_road_producer(Road *road_ptr) {
     //down(&sem_empty);  // consume and empty space, when we fill it
     ///down(&sem_mutex);  // consume the mutex
 
-    // Use POSIX Semaphores to start --> DOWN()
-    sem_wait(&road_ptr->south_sem_empty);
-    sem_wait(&road_ptr->sem_mutex);
-    while (true) {
-        // start producing! as per the logic in the assignment prompt
+    SharedMemoryQueue *southRoad = &road_ptr->southRoad;
 
-    }
-    // POSIX Semaphores --> UP()
-    sem_post(&road_ptr->sem_mutex);
-    sem_post(&road_ptr->south_sem_full);
+    while (true) {
+        /// start producing! as per the logic in the assignment prompt
+        // check if a car is arriving on on the southroad
+        southRoad->carArrived = carArrives();
+        if (southRoad->carArrived == false) {
+            // wait 20 seconds, without the mutex
+            sleep(20);
+
+        } else { /* else, we enter the critical section and start writing */
+            // Use POSIX Semaphores to start --> DOWN()
+            sem_wait(&road_ptr->south_sem_empty);
+            sem_wait(&road_ptr->sem_mutex);
+
+            // [ CRITICAL SECTION ]
+            // add car to the buffer, check if car arrived again
+            southRoad->buffer[southRoad->writeIndex] = southRoad->total++;
+            printf("SOUTH ROAD PRODUCER:   Produced SouthRoad:%d\n", southRoad->buffer[southRoad->writeIndex]);
+
+            southRoad->writeIndex = (southRoad->writeIndex + 1) % BUFFER_MAX;
+            southRoad->counter++;
+            // [ END CRITICAL SECTION ]
+
+            // POSIX Semaphores --> UP()
+            sem_post(&road_ptr->sem_mutex);
+            sem_post(&road_ptr->south_sem_full);
+        } // end-if
+
+    } // end-while
 
 
     // TODO:  USE MY UP()
@@ -249,6 +280,9 @@ void south_road_producer(Road *road_ptr) {
 
 void consumer(Road *road_ptr) {
     Flagperson *flagperson = &road_ptr->flagperson;
+    SharedMemoryQueue *northRoad = &road_ptr->northRoad;
+    SharedMemoryQueue *southRoad = &road_ptr->southRoad;
+
     /* Ensure we can access ands et set values correctly on our Road Model, via the ptr passed in */
     // ------------ DEBUG --------------
     // road_ptr->flagperson.roadInUse = true;
@@ -264,7 +298,7 @@ void consumer(Road *road_ptr) {
         // start consuming! as per the logic defined in the assignment prompt
 
         // check if we need to sleep
-        if (flagperson->lineLengthNorth == 0 && flagperson->lineLengthSouth == 0) {
+        if (northRoad->counter  == 0 && southRoad->counter == 0) {
             // fall asleep...
             flagperson->isAsleep = true;
         }
@@ -272,45 +306,57 @@ void consumer(Road *road_ptr) {
 
         // these will strictly alternate if both are >10... so should be okay.
         // CONSUME NORTH
-        if (flagperson->lineLengthNorth > 0 && flagperson->isAsleep == false) {
-           // let a car pass from north to south, ensure it takes 2 seconds,
-           // and no other cars can use the road during this time
-           // let cars pass WHILE lineLengthSouth < 10 && lineLengthNorth > 0
-           // WHILE ...
-           //     call honkHorn
-
-            // POSIX STYLE DOWN()
+        if (northRoad->counter > 0 && flagperson->isAsleep == false) {
+               // POSIX STYLE DOWN()
             sem_wait(&road_ptr->north_sem_full);
             sem_wait(&road_ptr->sem_mutex);
 
             // [ CRITICAL SECTION ]
+            // let a car pass from north to south, ensure it takes 2 seconds,
+            // and no other cars can use the road during this time
+            do {
+            honkHornIfneeded(flagperson);
+            printf("\tCONSUMED:   NorthRoad #%d\n", northRoad->buffer[northRoad->readIndex]);
+            northRoad->readIndex = (northRoad->readIndex + 1) % BUFFER_MAX;
+            northRoad->counter--; // this is the line length....
+            sleep(2);
+
+            // let cars pass WHILE lineLengthSouth < 10 && lineLengthNorth > 0
+            } while(southRoad->counter < 10 && northRoad->counter > 0);
+
+            // [ END CRITICAL SECTION ]
 
             // POSIX STYLE UP()
             sem_post(&road_ptr->sem_mutex);
             sem_post(&road_ptr->north_sem_empty);
-
-
         }
 
         // CONSUME SOUTH
-        if (flagperson->lineLengthSouth > 0 && flagperson->isAsleep == false) {
-
-            // let cars pass from south, and ensure ti takes 2 seconds,
-            // WHILE lineLengthNorth < 10 && lineLengthSouth > 0
-            // WHILE ...
-            //    call honkHorn
-
-            // POSIX STYLE DOWN()
+        if (southRoad->counter > 0 && flagperson->isAsleep == false) {
+               // POSIX STYLE DOWN()
             sem_wait(&road_ptr->south_sem_full);
             sem_wait(&road_ptr->sem_mutex);
 
             // [ CRITICAL SECTION ]
+            // let a car pass from north to south, ensure it takes 2 seconds,
+            // and no other cars can use the road during this time
+            do {
+            honkHornIfneeded(flagperson);
+            printf("\tCONSUMED:   SouthRoad #%d\n", southRoad->buffer[southRoad->readIndex]);
+            southRoad->readIndex = (southRoad->readIndex + 1) % BUFFER_MAX;
+            southRoad->counter--; // this is the line length....
+            sleep(2);
+
+            // let cars pass WHILE lineLengthSouth < 10 && lineLengthNorth > 0
+            } while(northRoad->counter < 10 && southRoad->counter > 0);
+
+            // [ END CRITICAL SECTION ]
 
             // POSIX STYLE UP()
             sem_post(&road_ptr->sem_mutex);
-            sem_post(&road_ptr->south_sem_empty);
-
+            sem_post(&road_ptr->north_sem_empty);
         }
+
     }
 
 }
