@@ -26,6 +26,10 @@ typedef int bool;
 #define false 0
 
 // GLOBAL VARS
+int flagpersonPID;
+int northRoadPID;
+int southRoadPID;
+
 int delayTime=20; /* seconds */
 int travelTime=2; /* seconds */
 
@@ -176,14 +180,18 @@ bool carArrives() {
     else
         arrivalDecision = false;
 
-    printf("Car arrives called by %d and returned: %d\n\n", getpid(), arrivalDecision);
+    int arrivalPID = getpid();
+    if (arrivalPID == northRoadPID)
+        printf("Car arrives called by %d (NORTH ROAD) and returned: %d\n\n", getpid(), arrivalDecision);
+    else
+        printf("Car arrives called by %d(SOUTH ROAD) and returned: %d\n\n", getpid(), arrivalDecision);
 
     return arrivalDecision;
 }
 
 void honkHornIfneeded(Flagperson *flagperson) {
    if (flagperson->isAsleep == true) {
-      printf("HONK CALLED by PID: %d\n\n", getpid());
+      printf("HONK CALLED\n\n");
       flagperson->isAsleep = false;
    }
 }
@@ -382,6 +390,7 @@ void runSimulation(void *mmap_region_ptr) {
     if (pid_flagperson < 0) perror("fork failed");
 
     if (pid_flagperson == 0) {
+        flagpersonPID = getpid();
         printf("I am the child with pid %d\n", (int) getpid());
         consumer(myRoad);
         exit(0); // ensure child only does work inside this if statement
@@ -398,6 +407,7 @@ void runSimulation(void *mmap_region_ptr) {
     if (pid_northRoad < 0) perror("fork failed");
 
     if (pid_northRoad == 0) {
+        northRoadPID = getpid();
         printf("I am the child with pid %d\n", (int) getpid());
         north_road_producer(myRoad);
         exit(0); // ensure child only does work inside this if statement
@@ -406,7 +416,7 @@ void runSimulation(void *mmap_region_ptr) {
 
 
     /* FORK PROCESS FOR PRODUCER (SOUTH ROAD) */
-    // --------- SOUTH ROAD --------------
+    // --------- SOUTH ROAD -------------
     printf("I am: %d\n", (int) getpid());
     pid_t pid_southRoad = fork();
     printf("fork returned %d\n", (int)pid_southRoad);
@@ -414,6 +424,7 @@ void runSimulation(void *mmap_region_ptr) {
     if (pid_southRoad < 0) perror("fork failed");
 
     if (pid_southRoad == 0) {
+        southRoadPID = getpid();
         printf("I am the child with pid %d\n", (int) getpid());
         south_road_producer(myRoad);
         exit(0); // ensure child only does work inside this if statement
