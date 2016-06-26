@@ -2382,7 +2382,7 @@ EXPORT_SYMBOL_GPL(orderly_poweroff);
 typedef struct Node {
     struct task_struct *item;
     struct Node *next;
-}
+} Node;
 
 /* The queue itself */
 typedef struct Queue {
@@ -2394,11 +2394,11 @@ typedef struct Queue {
 /*
  * Function to initalize the queue itself
  */
-Queue* initializeQueue() {
-    Queue *q = kmalloc(sizeof(Queue));
+Queue* initializeQueue(void) {
+    Queue *q = kmalloc(sizeof(Queue), GFP_USER); // allocate for a user space process
     q->size = 0;    
-    queue->head = NULL;
-    queue->tail = NULL;
+    q->head = NULL;
+    q->tail = NULL;
     return q;
 }
 
@@ -2406,7 +2406,7 @@ Queue* initializeQueue() {
  * Add an item to the queue. Using ints because we'll store the process PID's, which are ints
  */
 void enqueue(Queue *q /*int item*/) {
-   Node *n = kmalloc(sizeof(Node));
+   Node *n = kmalloc(sizeof(Node), GFP_USER); // allocate for a user space process
    n->item = current; //item; 
    n->next = NULL;
 
@@ -2425,7 +2425,7 @@ void enqueue(Queue *q /*int item*/) {
  * Take an item from the queue
  */
 struct task_struct* dequeue(Queue *q) {
-    Node *head = queue->head;
+    Node *head = q->head;
     struct task_struct *item = head->item;
 
     q->head = head->next;
@@ -2467,7 +2467,7 @@ asmlinkage long sys_cs1550_down(struct cs1550_sem *sem) {
     if (sem->value < 0)  {
 
         // add current process to the pl
-        enqueue(&sem->process_list); 
+        enqueue(sem->process_list); 
 
         // put the process to sleep
         set_current_state(TASK_INTERRUPTIBLE);
@@ -2496,9 +2496,9 @@ asmlinkage long sys_cs1550_up(struct cs1550_sem *sem) {
     sem->value += 1; 
     if (sem->value <= 0) {
         // remove process from pl
-        process_struct_ptr = dequeue(&sem->process_list);
+        process_struct_ptr = dequeue(sem->process_list);
         // and wake it up
-        wakeup_process(process_struct_ptr);
+        wake_up_process(process_struct_ptr);
 
     }
     // end crit section

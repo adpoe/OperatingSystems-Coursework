@@ -331,4 +331,4 @@ ENTRY(sys_call_table)
 	.long sys_eventfd
 	.long sys_fallocate
     .long sys_cs1550_down   /* DOWN sempahore function implemented for CS1550 */
-    .oong sys_cs1550_up     /* UP   semaphore function implemented for CS1550 */
+    .long sys_cs1550_up     /* UP   semaphore function implemented for CS1550 */
