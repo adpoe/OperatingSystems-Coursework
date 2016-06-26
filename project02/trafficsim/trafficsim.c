@@ -182,7 +182,7 @@ bool carArrives() {
 
     int arrivalPID = getpid();
     if (arrivalPID == northRoadPID)
-        printf("Car arrives called by %d (NORTH ROAD) and returned: %d\n\n", getpid(), arrivalDecision);
+        printf("Car arrives called by %d(NORTH ROAD) and returned: %d\n\n", getpid(), arrivalDecision);
     else
         printf("Car arrives called by %d(SOUTH ROAD) and returned: %d\n\n", getpid(), arrivalDecision);
 
@@ -191,7 +191,7 @@ bool carArrives() {
 
 void honkHornIfneeded(Flagperson *flagperson) {
    if (flagperson->isAsleep == true) {
-      printf("HONK CALLED\n\n");
+      printf("HONK CALLED. Flagperson wakes up...\n\n");
       flagperson->isAsleep = false;
    }
 }
@@ -478,4 +478,5 @@ int main() {
     // start the simulation
     runSimulation(mmap_region_start_ptr);
 
+    return 0;
 }
