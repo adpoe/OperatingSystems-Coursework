@@ -8,11 +8,12 @@
  *   Added two syscalls:
  *     - 325: __NR_cs1550_down   325
  *     - 326: __NR_cs1550_up     326
+ *     - 327: __NR_cs1550_sem_init  327
  *
  *  These numbers were chosen just because they were next in the list, 
  *  and everything seems to be ordered sequentially. 
  *  
- *  See lines: 343, and 344  
+ *  See lines: 343, 344, and 345  
  *----------  END UPDATE  -----------------
  */
 
@@ -343,6 +344,7 @@
 #define __NR_fallocate		324
 #define __NR_cs1550_down    325
 #define __NR_cs1550_up      326
+#define __NR_cs1550_sem_init 327
 
 #ifdef __KERNEL__
 

@@ -2449,10 +2449,11 @@ struct cs1550_sem {
 /* 
  * initalize the values in our semaphores 
  */
-void cs1550_sem_init(struct cs1550_sem *sem, int numResources) {
+asmlinkage long sys_cs1550_sem_init(struct cs1550_sem *sem, int numResources) {
    sem->value = numResources; 
    sem->process_list = initializeQueue(); 
 
+   return 0;
 }
 
 /*

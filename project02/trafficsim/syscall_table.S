@@ -1,7 +1,7 @@
 /*
  * File updated by @Anthony Poerio (adp59 at pitt dot edu)
  *      for CS1550, Project #2, Summer 2016
- *      Changes are on lines:  333 and 334
+ *      Changes are on lines:  333, 334, and 335
  */
 
 ENTRY(sys_call_table)
@@ -332,3 +332,4 @@ ENTRY(sys_call_table)
 	.long sys_fallocate
     .long sys_cs1550_down   /* DOWN sempahore function implemented for CS1550 */
     .long sys_cs1550_up     /* UP   semaphore function implemented for CS1550 */
+    .long sys_cs1550_sem_init   /* SEM_INIT function implemented for CS1550 */

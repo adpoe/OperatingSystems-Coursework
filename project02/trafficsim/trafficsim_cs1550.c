@@ -60,14 +60,14 @@ typedef struct Road {
     Flagperson flagperson;
 
     // Space for semaphores
-    // POSIX SEMAPHORES     TODO:  Use these to ensure that TrafficSim works, first and foremost
-    sem_t north_sem_empty;
-    sem_t north_sem_full;
+    // CS1550 SEMAPHORES     TODO:  Use these to ensure that TrafficSim works, first and foremost
+    struct cs1550_sem north_sem_empty;
+    struct cs1550_sem north_sem_full;
 
-    sem_t south_sem_empty;
-    sem_t south_sem_full;
+    struct cs1550_sem south_sem_empty;
+    struct cs1550_sem south_sem_full;
 
-    sem_t sem_mutex;
+    struct cs1550_sem  sem_mutex;
 } Road;
 
 /*
@@ -94,6 +94,10 @@ void *mapSharedMemory(int N) {
     // http://man7.org/linux/man-pages/man3/sem_init.3.html
     //     Re: Semaphores -> If semaphore is shared between processes, should be
     //     in a region of shared memory, and set 2nd flag to nonzero
+    // CS1550_SEMAPHORES
+    // TODO:  Export the cs1550_semi_init function you made, so this is possible, and more simple
+
+    // POSIX SEMAPHORES
     sem_init(&myRoad->north_sem_empty, 1, BUFFER_MAX); // empty semaphore starts with size of buffer
     sem_init(&myRoad->north_sem_full, 1, 0); // when we start, there are no full spaces
 
