@@ -17,7 +17,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include "simple_queue.c"
+#include <linux/unistd.h>
 
 // DEFINITIONS
 typedef int bool;
@@ -33,6 +33,26 @@ int delayTime=20; /* seconds */
 int travelTime=2; /* seconds */
 
 #define BUFFER_MAX 10
+
+/* Node that will hold the items in our queue */
+typedef struct Node {
+    struct task_struct *item;
+    struct Node *next;
+} Node;
+
+/* The queue itself */
+typedef struct Queue {
+    int size;
+    Node *head;
+    Node *tail;
+} Queue;
+
+
+struct cs1550_sem {
+    int value; // how many 'resources' we have access to
+    Queue *process_list;
+} cs1550_sem;
+
 
 typedef struct SharedMemoryQueue {
     bool carArrived;
@@ -448,7 +468,7 @@ int main() {
     int northRoadSize  = sizeof(SharedMemoryQueue);
     int southRoadSize  = sizeof(SharedMemoryQueue);
     int flagpersonSize = sizeof(Flagperson);
-    int sizeOfAllSemaphores = sizeof(struct cs1550_sem)*5 //sizeof(sem_t)*5;
+    int sizeOfAllSemaphores = sizeof(struct cs1550_sem)*5; //sizeof(sem_t)*5;
     int totalSharedMemoryNeeded = northRoadSize + southRoadSize + flagpersonSize + sizeOfAllSemaphores;
 
 
