@@ -17,7 +17,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/wait.h>
-// #include <linux/spinlock.h> TODO: Figure out how to actually build the kernel source and make a spinlock...
 #include "simple_queue.c"
 
 // DEFINITIONS
@@ -70,6 +69,26 @@ typedef struct Road {
     struct cs1550_sem  sem_mutex;
 } Road;
 
+//////////////////////////////
+//////// MY SYSCALLS /////////
+//////////////////////////////
+void down(struct cs1550_sem *sem) {
+    syscall(__NR_cs1550_down, sem);
+}
+
+void up(struct cs1550_sem *sem) {
+    syscall(__NR_cs1550_up, sem);
+}
+
+void cs1550_sem_init(struct cs1550_sem *sem, int numResources) {
+    syscall(__NR_cs1550_sem_init, sem, numResources);
+}
+
+
+
+/////////////////////////////
+//////// FUNCTIONS //////////
+/////////////////////////////
 /*
  * Create the memory mapped region where our queues will live.
  * Must be accessible to both a producer process and a separate consumer process
@@ -98,15 +117,24 @@ void *mapSharedMemory(int N) {
     // TODO:  Export the cs1550_semi_init function you made, so this is possible, and more simple
 
     // POSIX SEMAPHORES
-    sem_init(&myRoad->north_sem_empty, 1, BUFFER_MAX); // empty semaphore starts with size of buffer
-    sem_init(&myRoad->north_sem_full, 1, 0); // when we start, there are no full spaces
+    //sem_init(&myRoad->north_sem_empty, 1, BUFFER_MAX); // empty semaphore starts with size of buffer
+    //sem_init(&myRoad->north_sem_full, 1, 0); // when we start, there are no full spaces
 
-    sem_init(&myRoad->south_sem_empty, 1, BUFFER_MAX);
-    sem_init(&myRoad->south_sem_full, 1, 0);
+    //sem_init(&myRoad->south_sem_empty, 1, BUFFER_MAX);
+    //sem_init(&myRoad->south_sem_full, 1, 0);
 
-    sem_init(&myRoad->sem_mutex, 1, 1); // mutexes start with 1 since we have 1 critical region
+    //sem_init(&myRoad->sem_mutex, 1, 1); // mutexes start with 1 since we have 1 critical region
     /*---------------- END INITIALIZATION ---------------- */
 
+    /*------------- CS1550 SEMPAHORE INITIALIZATION ------------*/
+    cs1550_sem_init(&myRoad->north_sem_empty, BUFFER_MAX);
+    cs1550_sem_init(&myRoad->north_sem_full, 0);
+
+    cs1550_sem_init(&myRoad->south_sem_empty, BUFFER_MAX);
+    cs1550_sem_init(&myRoad->south_sem_full, 0);
+
+    cs1550_sem_init(&myRoad->sem_mutex, 1);
+     /*-------------- END INITIALIZATION -----------------------*/
 
     return mmap_region_start;
 }
@@ -164,8 +192,12 @@ void north_road_producer(Road *road_ptr) {
 
         } else { /* else, we enter the critical section and start writing */
             // Use POSIX Semaphores to start --> DOWN()
-            sem_wait(&road_ptr->north_sem_empty);
-            sem_wait(&road_ptr->sem_mutex);
+            //sem_wait(&road_ptr->north_sem_empty);
+            //sem_wait(&road_ptr->sem_mutex);
+
+            // Use CS1550 SEMAPHORES
+            down(&road_ptr->north_sem_empty);
+            down(&road_ptr->sem_mutex);
 
             // [ CRITICAL SECTION ]
             // add car to the buffer, check if car arrived again
@@ -176,9 +208,13 @@ void north_road_producer(Road *road_ptr) {
             northRoad->counter++;
             // [ END CRITICAL SECTION ]
 
+            // CS1550 UP SEMAPHORE
+            up(&road_ptr->sem_mutex);
+            up(&road_ptr->north_sem_full);
+
             // POSIX Semaphores --> UP()
-            sem_post(&road_ptr->sem_mutex);
-            sem_post(&road_ptr->north_sem_full);
+            //sem_post(&road_ptr->sem_mutex);
+            //sem_post(&road_ptr->north_sem_full);
         }
 
     }
@@ -208,8 +244,12 @@ void south_road_producer(Road *road_ptr) {
 
         } else { /* else, we enter the critical section and start writing */
             // Use POSIX Semaphores to start --> DOWN()
-            sem_wait(&road_ptr->south_sem_empty);
-            sem_wait(&road_ptr->sem_mutex);
+            //sem_wait(&road_ptr->south_sem_empty);
+            //sem_wait(&road_ptr->sem_mutex);
+
+            // CS1550 DOWN SEMAPHORE
+            down(&road_ptr->south_sem_empty);
+            down(&road_ptr->sem_mutex);
 
             // [ CRITICAL SECTION ]
             // add car to the buffer, check if car arrived again
@@ -220,9 +260,13 @@ void south_road_producer(Road *road_ptr) {
             southRoad->counter++;
             // [ END CRITICAL SECTION ]
 
+            // CS1550 UP SEMAPHORE
+            up(&road_ptr->sem_mutex);
+            up(&road_ptr->south_sem_full);
+
             // POSIX Semaphores --> UP()
-            sem_post(&road_ptr->sem_mutex);
-            sem_post(&road_ptr->south_sem_full);
+            //sem_post(&road_ptr->sem_mutex);
+            //sem_post(&road_ptr->south_sem_full);
         } // end-if
 
     } // end-while
@@ -255,10 +299,12 @@ void consumer(Road *road_ptr) {
         // check if we need to sleep
         if (flagperson->isAsleep == false && northRoad->counter == 0 && southRoad->counter == 0) {
             // fall asleep...
-            sem_wait(&road_ptr->sem_mutex);
+            //    sem_wait(&road_ptr->sem_mutex);
+            down(&road_ptr->sem_mutex);
             printf("There are no cars in either line. Flagperson has fallen asleep....\n\n");
             flagperson->isAsleep = true;
-            sem_post(&road_ptr->sem_mutex);
+            //     sem_post(&road_ptr->sem_mutex);
+            up(&road_ptr->sem_mutex);
         }
 
 
@@ -266,8 +312,12 @@ void consumer(Road *road_ptr) {
         // CONSUME NORTH
         if (northRoad->counter > 0 /*&& flagperson->isAsleep == false*/) {
                // POSIX STYLE DOWN()
-            sem_wait(&road_ptr->north_sem_full);
-            sem_wait(&road_ptr->sem_mutex);
+            //sem_wait(&road_ptr->north_sem_full);
+            //sem_wait(&road_ptr->sem_mutex);
+
+            // CS1550 DOWN
+            down(&road_ptr->north_sem_full);
+            down(&road_ptr->sem_mutex);
 
             // [ CRITICAL SECTION ]
             // let a car pass from north to south, ensure it takes 2 seconds,
@@ -284,16 +334,23 @@ void consumer(Road *road_ptr) {
 
             // [ END CRITICAL SECTION ]
 
+            up(&road_ptr->sem_mutex);
+            up(&road_ptr->north_sem_empty);
+
             // POSIX STYLE UP()
-            sem_post(&road_ptr->sem_mutex);
-            sem_post(&road_ptr->north_sem_empty);
+            //sem_post(&road_ptr->sem_mutex);
+            //sem_post(&road_ptr->north_sem_empty);
         }
 
         // CONSUME SOUTH
         if (southRoad->counter > 0 /*&& flagperson->isAsleep == false*/) {
                // POSIX STYLE DOWN()
-            sem_wait(&road_ptr->south_sem_full);
-            sem_wait(&road_ptr->sem_mutex);
+            //sem_wait(&road_ptr->south_sem_full);
+            //sem_wait(&road_ptr->sem_mutex);
+
+            // CS1550 DOWN
+            down(&road_ptr->south_sem_full);
+            down(&road_ptr->sem_mutex);
 
             // [ CRITICAL SECTION ]
             // let a car pass from north to south, ensure it takes 2 seconds,
@@ -310,9 +367,13 @@ void consumer(Road *road_ptr) {
 
             // [ END CRITICAL SECTION ]
 
+            // CS1550 UP
+            up(&road_ptr->sem_mutex);
+            up(&road_ptr->north_sem_empty);
+
             // POSIX STYLE UP()
-            sem_post(&road_ptr->sem_mutex);
-            sem_post(&road_ptr->north_sem_empty);
+            //sem_post(&road_ptr->sem_mutex);
+            //sem_post(&road_ptr->north_sem_empty);
         }
 
     }
@@ -387,7 +448,7 @@ int main() {
     int northRoadSize  = sizeof(SharedMemoryQueue);
     int southRoadSize  = sizeof(SharedMemoryQueue);
     int flagpersonSize = sizeof(Flagperson);
-    int sizeOfAllSemaphores = sizeof(sem_t)*5;
+    int sizeOfAllSemaphores = sizeof(struct cs1550_sem)*5 //sizeof(sem_t)*5;
     int totalSharedMemoryNeeded = northRoadSize + southRoadSize + flagpersonSize + sizeOfAllSemaphores;
 
 

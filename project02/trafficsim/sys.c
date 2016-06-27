@@ -2507,3 +2507,5 @@ asmlinkage long sys_cs1550_up(struct cs1550_sem *sem) {
 
     return 0;
 }   
+
+EXPORT_SYMBOL_GPL(cs1550_sem);
