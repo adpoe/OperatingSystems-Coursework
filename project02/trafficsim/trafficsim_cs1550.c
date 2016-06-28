@@ -223,6 +223,7 @@ void north_road_producer(Road *road_ptr) {
             // add car to the buffer, check if car arrived again
             northRoad->buffer[northRoad->writeIndex] = northRoad->total++;
             printf("NORTH ROAD PRODUCER:   Produced NorthRoad:%d\n\n", northRoad->buffer[northRoad->writeIndex]);
+            printf("North Road Queue Size:  %d\n\n", NorthRoad->counter);
 
             northRoad->writeIndex = (northRoad->writeIndex + 1) % BUFFER_MAX;
             northRoad->counter++;
@@ -275,6 +276,7 @@ void south_road_producer(Road *road_ptr) {
             // add car to the buffer, check if car arrived again
             southRoad->buffer[southRoad->writeIndex] = southRoad->total++;
             printf("SOUTH ROAD PRODUCER:   Produced SouthRoad:%d\n\n", southRoad->buffer[southRoad->writeIndex]);
+            printf("South Road Queue Size:  %d\n\n", southRoad->counter);
 
             southRoad->writeIndex = (southRoad->writeIndex + 1) % BUFFER_MAX;
             southRoad->counter++;
@@ -322,6 +324,8 @@ void consumer(Road *road_ptr) {
             //    sem_wait(&road_ptr->sem_mutex);
             down(&road_ptr->sem_mutex);
             printf("There are no cars in either line. Flagperson has fallen asleep....\n\n");
+            printf("North Road Queue Size:  %d", northRoad->counter);
+            printf("South Road Queue Size: %d", SouthRoad->counter);
             flagperson->isAsleep = true;
             //     sem_post(&road_ptr->sem_mutex);
             up(&road_ptr->sem_mutex);
@@ -344,7 +348,9 @@ void consumer(Road *road_ptr) {
             // and no other cars can use the road during this time
             do {
             honkHornIfneeded(flagperson);
-            printf("\tCONSUMED:   NorthRoad #%d\n\n", northRoad->buffer[northRoad->readIndex]);
+            printf("\tCONSUMED:   NorthRoad #%d, car is traveling from NORTH->SOUTH, and taking 2 seconds\n\n", northRoad->buffer[northRoad->readIndex]);
+            printf("\t\tNorthRoad QueueSize = %d\n\n", northRoad->counter);
+            printf("\t\tSouthRoad QueueSize = %d\n\n", southRoad->counter);
             northRoad->readIndex = (northRoad->readIndex + 1) % BUFFER_MAX;
             northRoad->counter--; // this is the line length....
             sleep(2);
@@ -377,7 +383,9 @@ void consumer(Road *road_ptr) {
             // and no other cars can use the road during this time
             do {
             honkHornIfneeded(flagperson);
-            printf("\tCONSUMED:   SouthRoad #%d\n\n", southRoad->buffer[southRoad->readIndex]);
+            printf("\tCONSUMED:   SouthRoad #%d, car is traveling from SOUTH->NORTH and taking 2 seconds\n\n", southRoad->buffer[southRoad->readIndex]);
+            printf("\t\tNorthRoad QueueSize = %d\n\n", northRoad->counter);
+            printf("\t\tSouthRoad QueueSize = %d\n\n", southRoad->counter);
             southRoad->readIndex = (southRoad->readIndex + 1) % BUFFER_MAX;
             southRoad->counter--; // this is the line length....
             sleep(2);
