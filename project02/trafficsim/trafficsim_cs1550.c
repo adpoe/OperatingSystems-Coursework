@@ -223,7 +223,7 @@ void north_road_producer(Road *road_ptr) {
             // add car to the buffer, check if car arrived again
             northRoad->buffer[northRoad->writeIndex] = northRoad->total++;
             printf("NORTH ROAD PRODUCER:   Produced NorthRoad:%d\n\n", northRoad->buffer[northRoad->writeIndex]);
-            printf("North Road Queue Size:  %d\n\n", NorthRoad->counter);
+            printf("North Road Queue Size:  %d\n\n", northRoad->counter);
 
             northRoad->writeIndex = (northRoad->writeIndex + 1) % BUFFER_MAX;
             northRoad->counter++;
@@ -325,7 +325,7 @@ void consumer(Road *road_ptr) {
             down(&road_ptr->sem_mutex);
             printf("There are no cars in either line. Flagperson has fallen asleep....\n\n");
             printf("North Road Queue Size:  %d", northRoad->counter);
-            printf("South Road Queue Size: %d", SouthRoad->counter);
+            printf("South Road Queue Size: %d", southRoad->counter);
             flagperson->isAsleep = true;
             //     sem_post(&road_ptr->sem_mutex);
             up(&road_ptr->sem_mutex);
