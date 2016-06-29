@@ -426,7 +426,7 @@ void runSimulation(void *mmap_region_ptr) {
 
     if (pid_flagperson == 0) {
         flagpersonPID = getpid();
-        printf("I am the child with pid %d\n", (int) getpid());
+        printf("Print as the child process with pid %d\n", (int) getpid());
         consumer(myRoad);
         exit(0); // ensure child only does work inside this if statement
     }
@@ -443,7 +443,7 @@ void runSimulation(void *mmap_region_ptr) {
 
     if (pid_northRoad == 0) {
         northRoadPID = getpid();
-        printf("I am the child with pid %d\n", (int) getpid());
+        printf("Print as the child process with pid %d\n", (int) getpid());
         north_road_producer(myRoad);
         exit(0); // ensure child only does work inside this if statement
     }

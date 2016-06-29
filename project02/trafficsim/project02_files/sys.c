@@ -119,7 +119,7 @@ EXPORT_SYMBOL(pm_power_off_prepare);
 /*
  *	Notifier list for kernel code which wants to be called
  *	at shutdown. This is used to stop any idling DMA operations
- *	and the like. 
+ *	and the like.
  */
 
 static BLOCKING_NOTIFIER_HEAD(reboot_notifier_list);
@@ -264,7 +264,7 @@ EXPORT_SYMBOL_GPL(atomic_notifier_chain_unregister);
  *	Otherwise the return value is the return value
  *	of the last notifier function called.
  */
- 
+
 int __kprobes __atomic_notifier_call_chain(struct atomic_notifier_head *nh,
 					unsigned long val, void *v,
 					int nr_to_call, int *nr_calls)
@@ -301,7 +301,7 @@ EXPORT_SYMBOL_GPL(atomic_notifier_call_chain);
  *
  *	Currently always returns zero.
  */
- 
+
 int blocking_notifier_chain_register(struct blocking_notifier_head *nh,
 		struct notifier_block *n)
 {
@@ -372,7 +372,7 @@ EXPORT_SYMBOL_GPL(blocking_notifier_chain_unregister);
  *	Otherwise the return value is the return value
  *	of the last notifier function called.
  */
- 
+
 int __blocking_notifier_call_chain(struct blocking_notifier_head *nh,
 				   unsigned long val, void *v,
 				   int nr_to_call, int *nr_calls)
@@ -622,7 +622,7 @@ EXPORT_SYMBOL_GPL(srcu_init_notifier_head);
  *	Currently always returns zero, as blocking_notifier_chain_register()
  *	always returns zero.
  */
- 
+
 int register_reboot_notifier(struct notifier_block * nb)
 {
 	return blocking_notifier_chain_register(&reboot_notifier_list, nb);
@@ -639,7 +639,7 @@ EXPORT_SYMBOL(register_reboot_notifier);
  *
  *	Returns zero on success, or %-ENOENT on failure.
  */
- 
+
 int unregister_reboot_notifier(struct notifier_block * nb)
 {
 	return blocking_notifier_chain_unregister(&reboot_notifier_list, nb);
@@ -1001,7 +1001,7 @@ void ctrl_alt_del(void)
 	else
 		kill_cad_pid(SIGINT, 1);
 }
-	
+
 /*
  * Unprivileged users may change the real gid to the effective gid
  * or vice versa.  (BSD-style)
@@ -1015,7 +1015,7 @@ void ctrl_alt_del(void)
  *
  * The general idea is that a program which uses just setregid() will be
  * 100% compatible with BSD.  A program which uses just setgid() will be
- * 100% compatible with POSIX with saved IDs. 
+ * 100% compatible with POSIX with saved IDs.
  *
  * SMP: There are not races, the GIDs are checked only by filesystem
  *      operations (as far as semantic preservation is concerned).
@@ -1065,7 +1065,7 @@ asmlinkage long sys_setregid(gid_t rgid, gid_t egid)
 }
 
 /*
- * setgid() is implemented like SysV w/ SAVED_IDS 
+ * setgid() is implemented like SysV w/ SAVED_IDS
  *
  * SMP: Same implicit races as above.
  */
@@ -1098,7 +1098,7 @@ asmlinkage long sys_setgid(gid_t gid)
 	proc_id_connector(current, PROC_EVENT_GID);
 	return 0;
 }
-  
+
 static int set_user(uid_t new_ruid, int dumpclear)
 {
 	struct user_struct *new_user;
@@ -1137,7 +1137,7 @@ static int set_user(uid_t new_ruid, int dumpclear)
  *
  * The general idea is that a program which uses just setreuid() will be
  * 100% compatible with BSD.  A program which uses just setuid() will be
- * 100% compatible with POSIX with saved IDs. 
+ * 100% compatible with POSIX with saved IDs.
  */
 asmlinkage long sys_setreuid(uid_t ruid, uid_t euid)
 {
@@ -1189,17 +1189,17 @@ asmlinkage long sys_setreuid(uid_t ruid, uid_t euid)
 }
 
 
-		
+
 /*
- * setuid() is implemented like SysV with SAVED_IDS 
- * 
+ * setuid() is implemented like SysV with SAVED_IDS
+ *
  * Note that SAVED_ID's is deficient in that a setuid root program
- * like sendmail, for example, cannot set its uid to be a normal 
+ * like sendmail, for example, cannot set its uid to be a normal
  * user and then switch back, because if you're root, setuid() sets
  * the saved uid too.  If you don't like this, blame the bright people
  * in the POSIX committee and/or USG.  Note that the BSD-style setreuid()
  * will allow a root program to temporarily drop privileges and be able to
- * regain them by swapping the real and effective uid.  
+ * regain them by swapping the real and effective uid.
  */
 asmlinkage long sys_setuid(uid_t uid)
 {
@@ -1214,7 +1214,7 @@ asmlinkage long sys_setuid(uid_t uid)
 	old_ruid = current->uid;
 	old_suid = current->suid;
 	new_suid = old_suid;
-	
+
 	if (capable(CAP_SETUID)) {
 		if (uid != old_ruid && set_user(uid, old_euid != uid) < 0)
 			return -EAGAIN;
@@ -1361,7 +1361,7 @@ asmlinkage long sys_setfsuid(uid_t uid)
 		return old_fsuid;
 
 	if (uid == current->uid || uid == current->euid ||
-	    uid == current->suid || uid == current->fsuid || 
+	    uid == current->suid || uid == current->fsuid ||
 	    capable(CAP_SETUID)) {
 		if (uid != old_fsuid) {
 			set_dumpable(current->mm, suid_dumpable);
@@ -1390,7 +1390,7 @@ asmlinkage long sys_setfsgid(gid_t gid)
 		return old_fsgid;
 
 	if (gid == current->gid || gid == current->egid ||
-	    gid == current->sgid || gid == current->fsgid || 
+	    gid == current->sgid || gid == current->fsgid ||
 	    capable(CAP_SETGID)) {
 		if (gid != old_fsgid) {
 			set_dumpable(current->mm, suid_dumpable);
@@ -1819,7 +1819,7 @@ out:
  *	SMP: Our groups are copy-on-write. We can set them safely
  *	without another task interfering.
  */
- 
+
 asmlinkage long sys_setgroups(int gidsetsize, gid_t __user *grouplist)
 {
 	struct group_info *group_info;
@@ -1967,7 +1967,7 @@ asmlinkage long sys_getrlimit(unsigned int resource, struct rlimit __user *rlim)
 /*
  *	Back compatibility for getrlimit. Needed for some apps.
  */
- 
+
 asmlinkage long sys_old_getrlimit(unsigned int resource, struct rlimit __user *rlim)
 {
 	struct rlimit x;
@@ -2167,7 +2167,7 @@ asmlinkage long sys_umask(int mask)
 	mask = xchg(&current->fs->umask, mask & S_IRWXUGO);
 	return mask;
 }
-    
+
 asmlinkage long sys_prctl(int option, unsigned long arg2, unsigned long arg3,
 			  unsigned long arg4, unsigned long arg5)
 {
@@ -2376,6 +2376,7 @@ EXPORT_SYMBOL_GPL(orderly_poweroff);
 ////////////////////////
 //// PROCESS QUEUE /////
 ////////////////////////
+// Queue implementation adapted from:  http://ben-bai.blogspot.com/2012/04/simple-queue-data-structure-in-ansi-c.html
 /* This is a simple LinkedList Queue data structure to hold our process list in our semaphore */
 
 /* Node that will hold the items in our queue */
@@ -2396,7 +2397,7 @@ typedef struct Queue {
  */
 Queue* initializeQueue(void) {
     Queue *q = kmalloc(sizeof(Queue), GFP_USER); // allocate for a user space process
-    q->size = 0;    
+    q->size = 0;
     q->head = NULL;
     q->tail = NULL;
     return q;
@@ -2407,7 +2408,7 @@ Queue* initializeQueue(void) {
  */
 void enqueue(Queue *q /*int item*/) {
    Node *n = kmalloc(sizeof(Node), GFP_USER); // allocate for a user space process
-   n->item = current; //item; 
+   n->item = current; //item;
    n->next = NULL;
 
     // if empty, deal with base case
@@ -2421,7 +2422,7 @@ void enqueue(Queue *q /*int item*/) {
     q->size++;
 }
 
-/* 
+/*
  * Take an item from the queue
  */
 struct task_struct* dequeue(Queue *q) {
@@ -2436,7 +2437,7 @@ struct task_struct* dequeue(Queue *q) {
 }
 
 //------------------------------//
-//      END PROCESS QUEUE       // 
+//      END PROCESS QUEUE       //
 //------------------------------//
 
 DEFINE_SPINLOCK(sem_lock); // define the spinlock our semaphore will use
@@ -2446,35 +2447,36 @@ struct cs1550_sem {
     Queue *process_list;
 } cs1550_sem;
 
-/* 
- * initalize the values in our semaphores 
+/*
+ * initalize the values in our semaphores
  */
 asmlinkage long sys_cs1550_sem_init(struct cs1550_sem *sem, int numResources) {
-   sem->value = numResources; 
-   sem->process_list = initializeQueue(); 
+   sem->value = numResources;
+   sem->process_list = initializeQueue();
 
    return 0;
 }
 
 /*
  * Custom DOWN semaphore call, using a spinlock
+ * Code adapted from: prod_sem.c found at:  http://people.cs.pitt.edu/~jmisurda/teaching/cs449/2084/cs0449-2084-synchhandout.pdf
  */
 asmlinkage long sys_cs1550_down(struct cs1550_sem *sem) {
 
     spin_lock(&sem_lock);   // close lock
 
     // crit section
-    sem->value -= 1; 
+    sem->value -= 1;
     if (sem->value < 0)  {
 
         // add current process to the pl
-        enqueue(sem->process_list); 
+        enqueue(sem->process_list);
 
         // put the process to sleep
         set_current_state(TASK_INTERRUPTIBLE);
     }
     // end crit section
-    
+
     spin_unlock(&sem_lock); // open lock
 
     // invoke the scheduler
@@ -2486,6 +2488,8 @@ asmlinkage long sys_cs1550_down(struct cs1550_sem *sem) {
 
 /*
  * Custom UP semaphore call, using a spinlock
+ *
+ * Code adapted from: http://people.cs.pitt.edu/~jmisurda/teaching/cs449/2084/cs0449-2084-synchhandout.pdf
  */
 asmlinkage long sys_cs1550_up(struct cs1550_sem *sem) {
     // get a pointer a task struct, we'll use this to wakeup a process, after we dequeue it
@@ -2494,7 +2498,7 @@ asmlinkage long sys_cs1550_up(struct cs1550_sem *sem) {
     spin_lock(&sem_lock);    // close lock
 
     // crit section
-    sem->value += 1; 
+    sem->value += 1;
     if (sem->value <= 0) {
         // remove process from pl
         process_struct_ptr = dequeue(sem->process_list);
@@ -2506,6 +2510,6 @@ asmlinkage long sys_cs1550_up(struct cs1550_sem *sem) {
     spin_unlock(&sem_lock);  // open lock
 
     return 0;
-}   
+}
 
 EXPORT_SYMBOL_GPL(cs1550_sem);
