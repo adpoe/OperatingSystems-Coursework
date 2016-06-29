@@ -2459,7 +2459,8 @@ asmlinkage long sys_cs1550_sem_init(struct cs1550_sem *sem, int numResources) {
 
 /*
  * Custom DOWN semaphore call, using a spinlock
- * Code adapted from: prod_sem.c found at:  http://people.cs.pitt.edu/~jmisurda/teaching/cs449/2084/cs0449-2084-synchhandout.pdf
+ * Code adapted from:
+ * https://people.cs.pitt.edu/~jmisurda/teaching/cs1550/slides/cs1550-ipc.pdf
  */
 asmlinkage long sys_cs1550_down(struct cs1550_sem *sem) {
 
@@ -2489,7 +2490,8 @@ asmlinkage long sys_cs1550_down(struct cs1550_sem *sem) {
 /*
  * Custom UP semaphore call, using a spinlock
  *
- * Code adapted from: http://people.cs.pitt.edu/~jmisurda/teaching/cs449/2084/cs0449-2084-synchhandout.pdf
+ * Code adapted from:
+ * https://people.cs.pitt.edu/~jmisurda/teaching/cs1550/slides/cs1550-ipc.pdf
  */
 asmlinkage long sys_cs1550_up(struct cs1550_sem *sem) {
     // get a pointer a task struct, we'll use this to wakeup a process, after we dequeue it

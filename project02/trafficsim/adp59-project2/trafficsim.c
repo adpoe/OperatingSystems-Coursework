@@ -5,6 +5,9 @@
  * Due:  July 3, 2016
  *
  * Main traffic simulation code
+ *
+ * Producer consumer logic adapted from Misurda's handout at:  http://people.cs.pitt.edu/~jmisurda/teaching/cs449/2084/cs0449-2084-synchhandout.pdf
+ * Prod_sem.c
  */
 
 // INCLUDES
