@@ -9,7 +9,8 @@ Test and report on algorithms for page replacement in an Operating System
 import sys
 import parseInput as parse
 import pageTable as pt
-import opt as opt
+import optV3 as opt
+import time
 
 ####################################
 ### PARSE INPUT FROM TRACE FILES ###
@@ -28,7 +29,7 @@ def main():
     num_frames = 8
     algorithm = "opt"
     refresh = None
-    traceFile = "swim.trace"
+    traceFile = "gcc.trace"
 
     # parse the input and store it
     memory_addresses = parse.parse_trace_file(traceFile)
@@ -41,9 +42,12 @@ def main():
 
 
     # write opt algorithm
+    t0 = time.time()
     OptAlgorithm = opt.Opt(pageTable, memory_addresses)
     OptAlgorithm.run_algorithm()
-
+    t1 = time.time()
+    total = t1-t0
+    print "TOTAL RUNNING TIME IN MINUTES: " + str(total*0.0166667)
     # write clock algorithm
 
     # write aging algorithm

@@ -8,7 +8,7 @@ class Opt():
     def __init__(self, page_table, trace):
         self.PAGE_TABLE = page_table
         self.trace = trace
-        self.time_until_use = {}    # HashTable, where the KEY=VPN, VALUE=NUM_LOADS_UNTIL used
+        self.time_until_use_dict = {}    # HashTable, where the KEY=VPN, VALUE=[NUM_LOADS_UNTIL_USED]
                                     # every iteration of the algorithm we need to subtract value by 1
 
     def get_next_address(self):
@@ -176,3 +176,27 @@ class Opt():
         print "Algorithm: Opt"
         print "Number of frames:   "+str(len(self.PAGE_TABLE.frame_table))
         print "Total memory acesses: "
+
+
+    def preprocess_trace(self):
+        # want to ONLY iterate through the trace ONCE and preprocess the values we need,
+        # so we can get to them faster and easier
+        trace_index_number = 0
+        for elem in self.trace:
+
+            # get a handle to the VPN at the current index
+            VPN = self.PAGE_TABLE.get_VPN(elem[0])
+
+            # if our dictionary already has an instance of the VPN...
+            if self.time_until_use_dict.has_key(VPN):
+                # then add the current index to the list of indices at which our VPN is needed
+                VPN_index_list = self.time_until_use_dict[VPN]
+                VPN_index_list.append(trace_index_number)
+
+            # otherwise, we need to make a new entry in the dictionary, and a new list
+            else:
+                # just give the new key a list with our current trace index number to start with
+                self.time_until_use_dict[VPN] = [trace_index_number]
+
+            # update the index number that we are looking at
+            trace_index_number += 1

@@ -11,6 +11,8 @@ class PageTable():
         self.page_faults = 0
         self.writes_to_disk = 0
         self.total_memory_accesses = 0
+        self.next_free_frame = 0 # Use this to make added a frame and checking for page fault O(1)
+        self.fast_index = {}
 
         # the table itself will be a list, which we can index into
         self.frame_table = []
@@ -34,15 +36,17 @@ class PageTable():
         offset = self.get_page_offset(mem_addr)
 
     def get_VPN(self, memory_address):
-        VPN_MASK = 0b11111111111111111111000000000000   # mask first 20 bits
-        binary_int = int(parse.hex_string_to_binary_int(memory_address), 2)
-        vpn_value = binary_int & VPN_MASK
+        VPN_MASK = 0xFFFFF000  # 0b11111111111111111111000000000000 mask first 20 bits 0xFFFFF0000
+        hex_int = int(memory_address, 16)
+        #binary_int = int(parse.hex_string_to_binary_int(memory_address), 16)
+        vpn_value = hex_int & VPN_MASK
         return vpn_value
 
     def get_page_offset(self, memory_address):
-        PAGE_OFFSET_MASK = 0b00000000000000000000111111111111  # mask bottom 12 bits
-        binary_int = int(parse.hex_string_to_binary_int(memory_address), 2)
-        offset_value = binary_int & PAGE_OFFSET_MASK
+        PAGE_OFFSET_MASK = 0x00000FFF  # 0b00000000000000000000111111111111 mask bottom 12 bits  0x00000FFFF
+        # binary_int = int(parse.hex_string_to_binary_int(memory_address), 16)
+        hex_int = int(memory_address, 16)
+        offset_value = hex_int & PAGE_OFFSET_MASK
         return offset_value
 
 class Frame():

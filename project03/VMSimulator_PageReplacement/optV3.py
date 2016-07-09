@@ -4,6 +4,8 @@ import pageTable as pt
 
 
 
+## NEXT:  Change print statements to class variables and just write one statement at end, each time.
+##        Should speed up significantly.  Replace with variables and make a 1 line print statement for everything.
 class Opt():
     """ An implementation of the optimal page replacement algorithm
     """
@@ -12,6 +14,11 @@ class Opt():
         self.trace = trace
         self.time_until_use_dict = {}    # HashTable, where the KEY=VPN, VALUE=[NUM_LOADS_UNTIL_USED]
                                     # every iteration of the algorithm we need to subtract value by 1
+
+        # string concatenation variables
+        self.hit = False
+        self.evict = False
+        self.dirty = False
 
     def get_next_address(self):
         # consume current value at trace[0]. remove it from the list
@@ -82,40 +89,49 @@ class Opt():
         return page_index
 
     def check_for_page_fault(self, vpn):
-        # assume page fault is true, and prove ourselves wrong
-        page_fault = True
-
-        # if we find a frame with our vpn in the current page table...
-        for frame in self.PAGE_TABLE.frame_table:
-            if frame.VPN == vpn:
-                # then, set page fault to False and break
-                page_fault = False
-                return False
-
-        # if we have a page fault at this point, increase our total
-        if page_fault == True:
+        if vpn in self.PAGE_TABLE.fast_index:
+            return False
+        else:
             self.PAGE_TABLE.page_faults += 1
-            print "\t-> PAGE FAULT"
-
-        # return what we find
-        return page_fault
+            #print "\t-> PAGE FAULT"
+            self.hit = False
+            return True
 
 
     def add_vpn_to_page_table_or_update(self, vpn, R_or_W):
         # iterate through all the frames in the page table,
         # and if there's an empty space, use it
+        if vpn in self.PAGE_TABLE.fast_index:
+            #print "\t-> NO EVICTION"
+            self.evict = False
+            frame_index = self.PAGE_TABLE.fast_index[vpn]
+            frame = self.PAGE_TABLE.frame_table[frame_index]
+            frame.in_use = True
+            frame.dirty = False
+            frame.VPN = vpn
+            frame.PPN = frame_index
+            frame.instructions_until_next_reference = self.find_time_until_next_access(vpn)
+            self.PAGE_TABLE.fast_index[vpn] = frame.PPN
+            # if we have a write, then the page is dirty
+            if R_or_W == 'W':
+                frame.dirty = True
+            return
+
+        # otherwise, search for a free space
         page_added = False
         index = 0
         for frame in self.PAGE_TABLE.frame_table:
             # then set this frame to in use
             if not frame.in_use:
-                print "\t-> NO EVICTION"
+                #print "\t-> NO EVICTION"
+                # self.evict = False
                 page_added = True
                 frame.in_use = True
                 frame.dirty = False
                 frame.VPN = vpn
                 frame.PPN = index
                 frame.instructions_until_next_reference = self.find_time_until_next_access(vpn)
+                self.PAGE_TABLE.fast_index[vpn] = frame.PPN
                 # if we have a write, then the page is dirty
                 if R_or_W == 'W':
                     frame.dirty = True
@@ -144,14 +160,19 @@ class Opt():
 
         # evict the least needed ppn, and if it's dirty write to disk, increase our disk writes by 1
         removal_frame = self.PAGE_TABLE.frame_table[least_needed]
+        self.PAGE_TABLE.fast_index.pop(removal_frame.VPN)
         removal_frame.in_use = False
         removal_frame.VPN = None
         removal_frame.instructions_until_next_reference = None
         if removal_frame.dirty:
             self.PAGE_TABLE.writes_to_disk += 1
-            print "\t-> EVICT DIRTY\n"
+            # print "\t-> EVICT DIRTY\n"
+            self.evict = True
+            self.dirty = True
         else:
-            print "\t-> EVICT CLEAN"
+            # print "\t-> EVICT CLEAN"
+            self.evict = True
+            self.dirty = False
 
 
     def run_algorithm(self):
@@ -161,15 +182,35 @@ class Opt():
         self.preprocess_trace()
 
         # pop from the list while we still have elements in it
-        while len(self.trace) != 0:
+        while len(self.trace) > 0:
+            # set string concatenation variables
+            self.hit = False
+            self.evict = False
+            self.dirty = False
+
+            # get next address and vpn from our trace
             next_address = self.get_next_address()
             next_vpn = self.PAGE_TABLE.get_VPN(next_address[0])
-            print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + str(self.PAGE_TABLE.total_memory_accesses)
-            # update our counters for how many instructions until next usage of all pages in our page table
 
+            # update our counters for how many instructions until next usage of all pages in our page table
             self.update_counters(next_vpn)
             # then, run the algorithm
             self.opt(next_address)
+
+            # print trace to screen
+            if self.hit:
+                print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
+                      str(self.PAGE_TABLE.total_memory_accesses) + "\n\t->HIT"
+            elif not self.evict:
+                  print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
+                      str(self.PAGE_TABLE.total_memory_accesses) + "\n\t->PAGE FAULT - NO EVICTION"
+            elif self.evict and not self.dirty:
+                 print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
+                      str(self.PAGE_TABLE.total_memory_accesses) + "\n\t->PAGE FAULT - EVICT CLEAN"
+            else:
+                 print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
+                      str(self.PAGE_TABLE.total_memory_accesses) + "\n\t->PAGE FAULT - EVICT DIRTY"
+
         self.print_results()
 
 
@@ -189,7 +230,8 @@ class Opt():
                 page_index = self.find_vpn_in_page_table(vpn)
                 self.PAGE_TABLE.frame_table[page_index].dirty = True
             # print to trace that we have a hit
-            print "\t-> HIT\n"
+            # print "\t-> HIT\n"
+            self.hit = True
 
         # else, page fault (make it +1; done in check_for_page_fault() fn),
         # and run the algorithm
