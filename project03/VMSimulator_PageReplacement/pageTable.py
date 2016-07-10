@@ -3,6 +3,7 @@
 #            intra-page addressing. The rest determine if we are using a page that's already in use
 #            So we're looking at the first 20 bits to see fi we've got a match...
 import parseInput as parse
+import circularQueue as cq
 
 class PageTable():
     def __init__(self, how_many_frames):
@@ -16,6 +17,9 @@ class PageTable():
 
         # the table itself will be a list, which we can index into
         self.frame_table = []
+
+        # circular queue of frames, used ONLY when we use the CLOCK algorithm
+        self.frame_queue = cq.CircularQueue(how_many_frames)
 
         # initialize the list so that it has however many frames the user chose
         for frame in range (0, self.num_frames):
@@ -58,6 +62,10 @@ class Frame():
         self.PPN = 0           # Physical page number, or index in the page table
         self.instructions_until_next_reference = None    # How many instructions until
                                                          # this page is next used
+
+        # reference bit, used for CLOCK algorithm
+        self.reference = False
+
 
 class VirtualAddress():
     def __init__(self, address):

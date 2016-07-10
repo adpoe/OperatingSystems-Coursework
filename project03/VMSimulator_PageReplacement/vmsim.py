@@ -10,6 +10,9 @@ import sys
 import parseInput as parse
 import pageTable as pt
 import optV3 as opt
+import clock as clock
+import lru as lru
+import aging as aging
 import time
 
 ####################################
@@ -26,10 +29,10 @@ def main():
     #cmdLineArgs = getUserInputgetUserInput()
 
     # SELECTED VARIABLES
-    num_frames = 8
+    num_frames = 64
     algorithm = "opt"
     refresh = None
-    traceFile = "gcc.trace"
+    traceFile = "swim.trace"
 
     # parse the input and store it
     memory_addresses = parse.parse_trace_file(traceFile)
@@ -42,13 +45,22 @@ def main():
 
 
     # write opt algorithm
+    """ Comment out for testing other algos
     t0 = time.time()
     OptAlgorithm = opt.Opt(pageTable, memory_addresses)
     OptAlgorithm.run_algorithm()
     t1 = time.time()
     total = t1-t0
     print "TOTAL RUNNING TIME IN MINUTES: " + str(total*0.0166667)
+    END COMMENT """
+
     # write clock algorithm
+    t0 = time.time()
+    clock_algorithm = clock.Clock(pageTable, memory_addresses)
+    clock_algorithm.run_algorithm()
+    t1 = time.time()
+    total = t1-t0
+    print "TOTAL RUNNING TIME IN MINUTES: " + str(total*0.0166667)
 
     # write aging algorithm
 
