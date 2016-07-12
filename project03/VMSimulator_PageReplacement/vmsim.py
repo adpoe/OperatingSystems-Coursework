@@ -31,8 +31,8 @@ def main():
     # SELECTED VARIABLES
     num_frames = 64
     algorithm = "opt"
-    refresh = None
-    traceFile = "swim.trace"
+    refresh = 0.001
+    traceFile = "gcc.trace"
 
     # parse the input and store it
     memory_addresses = parse.parse_trace_file(traceFile)
@@ -55,17 +55,32 @@ def main():
     END COMMENT """
 
     # write clock algorithm
+    """ Comment out for testing other algos
     t0 = time.time()
     clock_algorithm = clock.Clock(pageTable, memory_addresses)
     clock_algorithm.run_algorithm()
     t1 = time.time()
     total = t1-t0
     print "TOTAL RUNNING TIME IN MINUTES: " + str(total*0.0166667)
+    """
 
     # write aging algorithm
+    """ Comment out for testing other algorithms
+    t0 = time.time()
+    aging_algorithm = aging.Aging(pageTable, memory_addresses, refresh)
+    aging_algorithm.run_algorithm()
+    t1 = time.time()
+    total = t1-t0
+    print "TOTAL RUNNING TIME IN MINUTES: " + str(total*0.0166667)
+    """
 
     # write lru algorithm
-
+    t0 = time.time()
+    LRU_algorithm = lru.LRU(pageTable, memory_addresses)
+    LRU_algorithm.run_algorithm()
+    t1 = time.time()
+    total = t1-t0
+    print "TOTAL RUNNING TIME IN MINUTES: " + str(total*0.0166667)
 
     # write statistical tests and generate graphs
 

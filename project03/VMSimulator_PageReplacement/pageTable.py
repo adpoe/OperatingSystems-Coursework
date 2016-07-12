@@ -66,13 +66,14 @@ class Frame():
         # reference bit, used for CLOCK algorithm
         self.reference = False
 
+        # aging value, used by AGING algorithm
+        self.aging_value = 0
+
+        # last referenced, for LRU
+        self.last_reference = 0
 
 class VirtualAddress():
     def __init__(self, address):
         self.virtual_page_number = None   # top 20 bits
         self.page_offset = None           # bottom 12 bits
-
-#class PageTableEntry():
-#        def __init__(self, address):
-#            self.virtual_page_number = None   # top 20 bits
-#            self.valid = 0           # 0 or 1
+1

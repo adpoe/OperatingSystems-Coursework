@@ -1,12 +1,6 @@
 """ 'Clock' Page Replacement Algorithm Implementation
 """
 
-# Notes... second chance algorithm steps... think of what they are.
-# don't need a circular queue, just % the page size in our array. keep simple.
-
-
-# Next step.... account for logic in the output, print it, and give a trial run
-
 ##########################
 ######## ALGORITHM #######
 ##########################
@@ -82,7 +76,7 @@ class Clock():
             # then remove it from the trace, so it isn't processed a second time
             self.trace.pop(0)
 
-
+            self.PAGE_TABLE.total_memory_accesses += 1
              # print trace to screen
             if self.hit:
                 print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
@@ -96,7 +90,6 @@ class Clock():
             else:
                  print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
                       str(self.PAGE_TABLE.total_memory_accesses) + "\n\t->PAGE FAULT - EVICT DIRTY"
-            self.PAGE_TABLE.total_memory_accesses += 1
 
         self.print_results()
 
