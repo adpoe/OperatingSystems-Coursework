@@ -37,9 +37,9 @@ class LRU:
                 # if we're doing a write, need to set dirty bit
                 if read_or_write == 'W':
                     elem.dirty = True
+                # if we have a READ, mark the last reference variable, so we know that this was the last time our
+                # selected VPN was accessed
                 else:
-                     # if we have a READ, mark the frame access dictionary, so we know that this was the last time our
-                     # selected VPN was accessed
                     elem.last_reference = self.PAGE_TABLE.total_memory_accesses
                 # and return
                 return True
@@ -80,6 +80,7 @@ class LRU:
         for elem in self.frame_list:
             # index by the key to get a value
             value = elem.last_reference
+            # find the lowest value overall, and get its PPN and VPN
             if lowest_value is None or value < lowest_value:
                 lowest_value = value
                 lowest_value_vpn = elem.VPN

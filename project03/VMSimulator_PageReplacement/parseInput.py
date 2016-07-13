@@ -13,7 +13,7 @@ def parse_trace_file(file_path):
         return None
 
     # read in each line from our trace file in order,
-    # and atore all the data points in a LIST called 'data_points'
+    # and store all the data points in a LIST called 'data_points'
     data_points = []
     with open( file_path, "r") as f:
         data_points = f.readlines()
@@ -22,7 +22,7 @@ def parse_trace_file(file_path):
     # into a tuple with this format: (MEMORY_ADDRESS, R/W),
     # store all of these in a lit of tuples [(MEM, R/W),(MEM, R/W), ... ]
     data_point_tuple_list = []
-    for value in range(0, len(data_points)-1):
+    for value in range(0, len(data_points)):
         # Split each data point int a string on the space (" ")
         # between its address and R/W
         split_string = data_points[value].split(" ")

@@ -60,9 +60,9 @@ class Clock():
         # keep track of our memory accesses
         self.PAGE_TABLE.total_memory_accesses = 0
 
+
         # run the algorithm while we have items left in the trace
         while len(self.trace) > 0:
-            # reset output variables
             self.hit = False
             self.evict = False
             self.dirty = False
@@ -82,13 +82,13 @@ class Clock():
                 print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
                       str(self.PAGE_TABLE.total_memory_accesses) + "\n\t->HIT"
             elif not self.evict:
-                  print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
+                print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
                       str(self.PAGE_TABLE.total_memory_accesses) + "\n\t->PAGE FAULT - NO EVICTION"
             elif self.evict and not self.dirty:
-                 print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
+                print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
                       str(self.PAGE_TABLE.total_memory_accesses) + "\n\t->PAGE FAULT - EVICT CLEAN"
             else:
-                 print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
+                print "Memory address: " + str(next_address[0]) + " VPN="+ str(next_vpn) + ":: number " + \
                       str(self.PAGE_TABLE.total_memory_accesses) + "\n\t->PAGE FAULT - EVICT DIRTY"
 
         self.print_results()
