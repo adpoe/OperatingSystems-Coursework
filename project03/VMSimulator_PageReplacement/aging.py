@@ -177,8 +177,9 @@ class Aging:
         self.print_results()
 
     def print_results(self):
-        print "Algorithm: Clock"
+        print "Algorithm: Aging"
         print "Number of frames:   "+str(len(self.PAGE_TABLE.frame_table))
+        print "Refresh Rate:       "+str(self.refresh_time_in_ms)
         print "Total Memory Accesses: "+str(self.PAGE_TABLE.total_memory_accesses)
         print "Total Page Faults: "+str(self.PAGE_TABLE.page_faults)
         print "Total Writes to Disk: "+str(self.PAGE_TABLE.writes_to_disk)

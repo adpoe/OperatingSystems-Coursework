@@ -5,6 +5,9 @@ Project #3:   VM Simulator for Page Replacement Algorithms
 Summer 2016
 
 Test and report on algorithms for page replacement in an Operating System
+
+Usage:  python vmsim.py -n <numframes> -a <opt|clock|aging|lru> [-r <refresh>] <tracefile>
+
 """
 import sys
 import parseInput as parse
@@ -29,10 +32,17 @@ def main():
     cmdLineArgs = getUserInput()
 
     # get the user input from our list, so we can use it in main
-    num_frames = cmdLineArgs[0]
+    try:
+        num_frames = int(cmdLineArgs[0])
+    except:
+        print "Number of frames not specified properly."
+        print "Usage:  python vmsim.py -n <numframes> -a <opt|clock|aging|lru> [-r <refresh>] <tracefile>"
+
     algorithm = cmdLineArgs[1]
-    refresh = cmdLineArgs[2]
+    if cmdLineArgs[2] is not None:
+        refresh = int(cmdLineArgs[2])
     traceFile = cmdLineArgs[3]
+
 
     # parse the input and store it
     memory_addresses = parse.parse_trace_file(traceFile)
@@ -86,9 +96,10 @@ def main():
 
     else:
         print "Invalid algorithm name. Acceptable choices are:" \
-              "\n\t 'opt' \n\t'clock' \n\t'aging' \n\t'lru' " \
-              "\n\n\t\tNote: algorithm names are case sensitive"
+              "\n\t- 'opt' \n\t- 'clock' \n\t- 'aging' \n\t- 'lru' " \
+              "\n\n\tNote: algorithm names are case sensitive\n"
 
+        print "Usage:  python vmsim.py -n <numframes> -a <opt|clock|aging|lru> [-r <refresh>] <tracefile>\n"
     return
 
 
@@ -103,9 +114,11 @@ def getUserInput():
     num_frames_index = 0
     algorithm_index = 0
     refresh_index = 0
+    args = sys.argv
 
     # parse command line arguments and get our argument indices
     for elem in sys.argv:
+        element = elem
         if elem == "-n":
             num_frames_index = counter + 1
         if elem == "-a":
@@ -115,13 +128,13 @@ def getUserInput():
         counter += 1
 
     # check that input is okay
-    if algorithm_index == 0 or num_frames_index == 0 or refresh_index == 0:
-        print "Usage:  vmsim.py -n <numframes> -a <opt|clock|aging|lru> [-r <refresh>] <tracefile>"
+    if algorithm_index == 0:
+        print "Usage:  python vmsim.py -n <numframes> -a <opt|clock|aging|lru> [-r <refresh>] <tracefile>"
 
 
 
     # get the num frames and algorithm selection
-    num_frames = sys.argv[num_frames_index]
+    num_frames = sys.argv[2]
     algorithm = sys.argv[algorithm_index]
     # and append them to the list
     arglist.append(num_frames)
@@ -130,6 +143,7 @@ def getUserInput():
     # if algorithm is aging
     if algorithm == "aging":
         if len(sys.argv) < 8:
+            print "Usage:  python vmsim.py -n <numframes> -a <opt|clock|aging|lru> [-r <refresh>] <tracefile>"
             exit("Too few arguments. Please ensure there is a refresh rate.")
         # then we need a refresh rate
         refresh = sys.argv[refresh_index]
