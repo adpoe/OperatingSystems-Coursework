@@ -9,7 +9,7 @@ Test and report on algorithms for page replacement in an Operating System
 import sys
 import parseInput as parse
 import pageTable as pt
-import optV3 as opt
+import opt as opt
 import clock as clock
 import lru as lru
 import aging as aging
