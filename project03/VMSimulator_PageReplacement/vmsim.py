@@ -40,7 +40,7 @@ def main():
 
     algorithm = cmdLineArgs[1]
     if cmdLineArgs[2] is not None:
-        refresh = int(cmdLineArgs[2])
+        refresh = float(cmdLineArgs[2])
     traceFile = cmdLineArgs[3]
 
 
