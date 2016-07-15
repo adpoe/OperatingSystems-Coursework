@@ -5,7 +5,7 @@ import time
 ##########################
 ######## ALGORITHM #######
 ##########################
-
+# To do -- re run for everything and fix recommendation to 0.00001
 class Aging:
 
     def __init__(self, page_table, trace, refresh_rate):
@@ -47,10 +47,11 @@ class Aging:
         if time.clock() - self.time_of_last_refresh >= self.refresh_time_in_ms:
             # add or update, then reset the reference bits
             self.age_and_mark_if_referenced_during_last_tick()
+            self.time_of_last_refresh = time.clock()
 
-        # then reset all the reference bits
-        for elem in self.frame_queue:
-            elem.reference = False
+            # then reset all the reference bits
+            for elem in self.frame_queue:
+                elem.reference = False
 
 
     def add_or_update_page(self, vpn, read_or_write):
