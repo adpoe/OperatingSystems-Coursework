@@ -319,6 +319,51 @@ int create_directory(char *DIR_name) {
     return 0;
 }
 
+/*
+ * Get a copy of data in the subdirectory struct, so we can see what's in it
+ */
+cs1550_directory_entry* get_subdirectory_struct(){
+    // code here
+}
+
+
+/*
+ * Get a copy of the root directory struct, for us to use
+ */
+cs1550_root_directory* get_root_directory_struct(){
+    // code here
+}
+
+/*
+ * Get a copy of the a disk block, so we can use it's data
+ */
+cs1550_disk_block* get_disk_block() {
+    // code here
+}
+
+
+/*
+ * Write data the root directory on our disk
+ * Take all possible values, and if NOT null, use the to write
+ */
+int write_to_root_directory_on_disk(){
+    // code here
+}
+
+/*
+ * Write data to a subdirectory, need its block index and the data to write
+ */
+int write_to_subdirectory_on_disk(){
+    // code here
+}
+
+/*
+ * Write data to a file on disk. Need a block index and the data to write
+ * May also want to support an append. Can do that that with 0/1 variable if necessary.
+ */
+int write_to_file_on_disk(){
+    // code ehre
+}
 //////////////////////////////////
 ///// FILE-SYSTEM OPERATIONS /////
 //////////////////////////////////
@@ -413,7 +458,88 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
-	/*
+
+
+    // First, check if we are in the root. 
+    // In this case, we need to list all subdirectories, under root
+    // LIST SUB_DIRS UNDER ROOT
+    if (strcmp(path, "/") == 0) 
+    {
+        filler(buf, ".", NULL, 0);
+	    filler(buf, "..", NULL, 0);
+        
+        // next, get all subdirectories that are valid in the root data structure,
+        // and pass their names to the filler function
+        FILE *disk_file_ptr = fopen(".disk", "rb"); 
+        // handle read error on fopen
+        if (NULL == disk_fil_ptr) {
+            perror("Could not open .disk file, in READDIR syscall");
+            return -ENOENT;
+        }
+
+        // get the data we've stored on disk in root dir, put it in our root_directory struct, so we can work with it
+        cs1550_root_directory ROOT_dir;
+        // handle fread error, if data is corrupted or non-existent 
+        if ( BLOCK_SIZE != fread(&ROOT_dir, 1, BLOCK_SIZE, disk_file_ptr) ) {
+           perror("Disk file exists, but could not read in data for the root directory. In READDIR syscall."); 
+           return -ENOENT;
+        }
+
+        // iterate through the root and grab all valid names, fill them in the buffer
+        int directory_index;
+        for (directory_index=0; i<MAX_DIRS_IN_ROOT; i++) {
+            // check if name is valid. if it's valid, first letter will not be a 0
+            if (ROOT_dir.directories[directory_index].dname[0] != 0) {
+                // if we're here, name is valid, so put it in the filler, buffer
+                filler(buf, ROOT_dir.directories[directory_index].dame, NULL, 0);
+            } // end-if, checking if names are valid
+        } // end for-loop, iterating through directories in the root
+
+        // close the file
+        fclose(disk_file_ptr);   
+    } // end-if, if where user has asked to list directories under root
+
+    // ELSE: WE ARE TRYING TO LIST **FILES** IN A SUBDIRECTORY
+    else 
+    {
+        // get our directory name, all the elements of the ath
+        char DIR_name[MAX_FILENAME + 1];
+        char FILE_name[MAX_FILENAME + 1];
+        char FILE_extension[MAX_EXTENSION + 1];
+
+        // fill our strings with proper values
+        get_filepath(path, DIR_name, FILE_name, FILE_extension);
+        
+        // CHECK IF A FILE EXTENSION WAS PASSED IN
+        // if so, we aren't looking for a directory to list we need to return an error
+        if (FILE_extension[0] != 0){
+            perror("File extension passed into READDIR, which is for listing contents of a DIR, not contents of a file.");
+            return -ENOENT;
+        }
+
+        // CHECK IF FILE NAME WAS PASSED IN
+        if (FILE_name[0] != 0) {
+            perror("File NAME  passed into READDIR, which is for listing contents of a DIR, not contents of a file.");
+            return -ENOENT;
+        }
+
+        // ELSE, we are looking for a directory, as expected.
+        // And, we know it's not the root. So let's look for the dir name, and see if it's valid 
+        long subdir_starting_block = get_subdirectory_starting_block(DIR_name); 
+        // handle error; if our subdirectory wasn't found, the previous function call
+        // will return a -1
+        if (-1 == subdir_starting_block) {
+            perror("READDIR: Subdirectory not found");
+            return -ENOENT;
+        }
+
+        // if we make it here, the directory is valid, so let's find it's block on the disk and grab all the file names it is storing
+
+
+
+        
+    }
+    /*
 	//add the user stuff (subdirs or files)
 	//the +1 skips the leading '/' on the filenames
 	filler(buf, newpath + 1, NULL, 0);
@@ -476,8 +602,8 @@ static int cs1550_mkdir(const char *path, mode_t mode)
     // IF WE MAKE IT THIS FAR, CREATE THE DIRECTORY
     // handle error
     if (create_directory(DIR_name) != 0) {
-        return -1;
         perror("Could not create directory");
+        return -1;
     }
     
     // if we make it this far, SUCCCESS. Return 0.
