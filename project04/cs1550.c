@@ -293,10 +293,10 @@ int create_directory(char *DIR_name) {
     
     // open the disk file for writing
     // Open the .disk file, get a pointer to it 
-    FILE *disk_file_ptr = fopen(".disk", "wb");
+    FILE *disk_file_ptr = fopen(".disk", "r+b"); // maybe make this r+? 
     // handle error
     if (disk_file_ptr == NULL) {
-        perror("Could not open .disk file. Please ensure it is in the current directory");
+        perror("CREATE_DIR:  Could not open .disk file. Please ensure it is in the current directory");
     }
 
     // seek to the location in .disk where our directory is stored, using the subdir_offset
@@ -307,11 +307,12 @@ int create_directory(char *DIR_name) {
     cs1550_root_directory ROOT_dir;
     /* >>> DON'T NEED TO READ IN ROOT HERE;; WE'RE **WRITING** TO IT 
     // handle error, if the root directory isn't one full block size for any reason
+    */
     if (BLOCK_SIZE != fread(&ROOT_dir, 1, BLOCK_SIZE, disk_file_ptr)) {
-        perror("CREATE_DIRECTORY: root directory wasn't loaded in currently when trying to parse the .disk file");
+        perror("CREATE_DIR: root directory wasn't loaded in currently when trying to parse the .disk file");
         return -1;
     }
-    */
+    
 
 
     // instead, we need to fwrite into the binary on the disk, in the proper location....
@@ -327,10 +328,17 @@ int create_directory(char *DIR_name) {
     for (index=0; index < (MAX_FILENAME + 1); index++)
         ROOT_dir.directories[subdir_starting_block].dname[index] = DIR_name[index];  
     // need to copy ^^^ with a for-loop because the dname is of different type, it must be char[9]
-    ROOT_dir.directories[subdir_starting_block].nStartBlock = subdir_starting_block;
+    ROOT_dir.directories[subdir_starting_block].nStartBlock = subdir_starting_block + 1; // +1 since 0 is root directory
     // also keep track of how many directories we have. add one, since we just created a new dir 
     ROOT_dir.nDirectories++;
-   
+
+    // NOW, WRITE OUR UPDATE ROOT DIR BACK TO THE DISK
+    fseek(disk_file_ptr, 0, SEEK_SET); 
+    // write back and handle error
+    if (BLOCK_SIZE != fwrite(&ROOT_dir, 1, BLOCK_SIZE, disk_file_ptr)) {
+        printf("CREATE_DIR: Error writing ROOT_DIR's data back to the binary .disk file\n"); 
+        return -1;
+    }
     // close the .disk file, once we're done
     fclose(disk_file_ptr);
 
