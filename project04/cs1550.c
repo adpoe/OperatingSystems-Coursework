@@ -212,13 +212,73 @@ long* get_file_starting_block(const char *subdir_name, const char *extension, lo
     return return_vals_array;
 }
 
-long find_free_space(){
+/*
+ * Find next directory block in root struct which is free to use
+ */
+long find_next_free_directory_starting_block(){
+    // might need to initalize the root directory and memset everything to 0's, in dName, so I know what I'm working with a priori
     // open a file, load in root dir... iteratore through and fine where dName[0] = 0
     // this will be our offset, once we find out many blocks from start this location is...
     // iterate by block
     // also check if nDirectories > maxdirsinroot
+    
+    // open the disk file for reading 
+    // Open the .disk file, get a pointer to it 
+    FILE *disk_file_ptr = fopen(".disk", "rb");
+    // handle error
+    if (disk_file_ptr == NULL) {
+        perror("Could not open .disk file. Please ensure it is in the current directory");
+    }
+
+    // seek to the location in .disk where our directory is stored, using the subdir_offset
+    // seek to start, which is beginning of root
+    fseek(disk_file_ptr, 0, SEEK_SET); 
+
+    // define a root directory struct for us to use
+    cs1550_root_directory ROOT_dir;
+
+    // handle error, if the root directory isn't one full block size for any reason
+    if (BLOCK_SIZE != fread(&ROOT_dir, 1, BLOCK_SIZE, disk_file_ptr)) {
+        perror("root directory wasn't loaded in currently when trying to parse the .disk file");
+        return -1;
+    }
+    
+    if (ROOT_dir.nDirectories >= MAX_DIRS_IN_ROOT) {
+        perror("We already have the maximum number of directories in the root. So we cannot create another.");
+        return -1
+    }
+    // now, iterate through and find the first subdirectory with an empty name 
+    long starting_block = -1;
+    int i;
+    for (i=0; i < ROOT_dir.nDirectories; i++) {
+        // find the first directory name that starts with a 0, meaning it is un-initialized 
+        if (ROOT_dir.directories[i].dname[0] == 0)  {
+            // and if found, de-reference the starting block so we can return it, 
+            starting_block = ROOT_dir.directories[i].nStartBlock;
+            // break out of loop
+            break;
+        }
+    }
+    
+    // close the .disk file, once we're done
+    fclose(disk_file_ptr);
+
+    // return what we've found
+    return starting_block; 
 }
+
+/*
+ * Function to create a new directory in first empty space
+ */
 int create_directory(char *DIR_name) {
+    // need how many bytes to seek to?
+    // it's size of block * how many blocks into the root we've iterated
+    // and at this location, we create the DIRECTORY struct
+    long subdir_starting_block = find_next_free_directory_starting_block();
+    // handle error, if there are no free directories, return -1
+    if (subdir_starting_block == -1) 
+        return -1;
+    
     // open the disk file for writing
     // Open the .disk file, get a pointer to it 
     FILE *disk_file_ptr = fopen(".disk", "wb");
@@ -230,7 +290,31 @@ int create_directory(char *DIR_name) {
     // seek to the location in .disk where our directory is stored, using the subdir_offset
     // seek to start, which is beginning of root
     fseek(disk_file_ptr, 0, SEEK_SET); 
+
+    // define a root directory struct for us to use
+    cs1550_root_directory ROOT_dir;
+
+    // handle error, if the root directory isn't one full block size for any reason
+    if (BLOCK_SIZE != fread(&ROOT_dir, 1, BLOCK_SIZE, disk_file_ptr)) {
+        perror("root directory wasn't loaded in currently when trying to parse the .disk file");
+        return -1;
+    }
+
+    // now index into the proper directory entry in root, and set it's name
+    // and it's starting block, for future reference
+    // Keeping a 1-to-1 mapping of directory index and starting blocks, this should work out no matter what logic
+    ROOT_dir.directories[subdir_starting_block].dname = DIR_name;  
+    ROOT_dir.directories[subdir_starting_block].nStartBlock = subdir_starting_block;
+    // also keep track of how many directories we have. add one, since we just created a new dir 
+    ROOT_dir.nDirectories++;
+   
+    // close the .disk file, once we're done
+    fclose(disk_file_ptr);
+
+    // if we make it this, far, everything is okay. return 0 to signify this.
+    return 0;
 }
+
 //////////////////////////////////
 ///// FILE-SYSTEM OPERATIONS /////
 //////////////////////////////////
@@ -375,7 +459,7 @@ static int cs1550_mkdir(const char *path, mode_t mode)
     int count = 0;
     // count how many /'s we have
     for (int index=0; index < pathLen; index++) {
-        if (path[index] == '\') {
+        if (path[index] == '/') {
             count++;
         }
     }
@@ -386,8 +470,13 @@ static int cs1550_mkdir(const char *path, mode_t mode)
     }
 
     // IF WE MAKE IT THIS FAR, CREATE THE DIRECTORY
-    create_directory(DIR_name);
-
+    // handle error
+    if (create_directory(DIR_name) != 0) {
+        return -1;
+        perror("Could not create directory");
+    }
+    
+    // if we make it this far, SUCCCESS. Return 0.
 	return 0;
 }
 
