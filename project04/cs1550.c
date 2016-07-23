@@ -588,11 +588,35 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         }
 
         // if we make it here, the directory is valid, so let's find it's block on the disk and grab all the file names it is storing
-        
+        cs1550_directory_entry *subdirectory = get_subdirectory_struct(subdir_starting_block); 
+        int num_files_in_directory = subdirectory->nFiles; 
+        // at a minimum, we'll show . and .. as valid files, since they are in EVERY directory
+        filler(buf, ".", NULL, 0);
+	    filler(buf, "..", NULL, 0);
 
+        // check if we have any files to list in the chosen directory
+        if (num_files_in_directory == 0) {
+            // if no other files to list, just return  
+            return 0;
+        }
 
+        // othewrwise, we need to fill the buffer with our remaining files
+        int file_index;
+        for (file_index=0; file_index < MAX_FILES_IN_DIR; file_index++) {
+            // check if each file is valid
+            cs1550_file_directory current_file = subdirectory->files[file_index];
+            // if the first letter of fname is NOT 0, the file has a name
+            if (current_file.fname[0] != 0) {
+                // concat the file name, and add it to our buffer
+                char file_name[MAX_FILENAME + MAX_EXTENSION + 2];
+                strcpy(file_name, current_file.fname);
+                srcat(file_name, ".");
+                strcat(file_name, current_file.fext);
+                filler(buf, file_name, NULL, 0); 
+            } // end-if, for checking if file name is present
+        } // end-for, for iterating through the list of all possible files in the subdirectory
         
-    }
+    } // end-else, for trying to list files in a SUB_DIRECTORY
     /*
 	//add the user stuff (subdirs or files)
 	//the +1 skips the leading '/' on the filenames
