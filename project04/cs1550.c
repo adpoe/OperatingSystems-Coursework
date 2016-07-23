@@ -514,19 +514,15 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	//satisfy the compiler
 	(void) offset;
 	(void) fi;
+          /* TEST IF FILLER ACTUALLY WORKS
+            filler(buf, ".", NULL, 0);
+            filler(buf, "..", NULL, 0);
+            return 0; 
 
-	//This line assumes we have no subdirectories, need to change
-	if (strcmp(path, "/") != 0)
-	return -ENOENT;
+            END TEST */
 
-	//the filler function allows us to add entries to the listing
-	//read the fuse.h file for a description (in the ../include dir)
-	filler(buf, ".", NULL, 0);
-	filler(buf, "..", NULL, 0);
-
-
-
-    // First, check if we are in the root. 
+    printf("READDIR CALLED\n");
+	// First, check if we are in the root. 
     // In this case, we need to list all subdirectories, under root
     // LIST SUB_DIRS UNDER ROOT
     if (strcmp(path, "/") == 0) 
@@ -551,11 +547,14 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
            return -ENOENT;
         }
 
+        printf("READDIR:  ROOT SELECTED AND VALID\n");
         // iterate through the root and grab all valid names, fill them in the buffer
         int directory_index;
         for (directory_index=0; directory_index<MAX_DIRS_IN_ROOT; directory_index++) {
+            printf("ITERATING THROUGH DIRS IN READDIR\n");
             // check if name is valid. if it's valid, first letter will not be a 0
             if (ROOT_dir.directories[directory_index].dname[0] != 0) {
+                printf("READDIR:  Found a valid directory name");
                 // if we're here, name is valid, so put it in the filler, buffer
                 filler(buf, ROOT_dir.directories[directory_index].dname, NULL, 0);
             } // end-if, checking if names are valid
@@ -568,6 +567,7 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     // ELSE: WE ARE TRYING TO LIST **FILES** IN A SUBDIRECTORY
     else 
     {
+        printf("READDIR: Subdirectory selected\n");
         // get our directory name, all the elements of the ath
         char DIR_name[MAX_FILENAME + 1];
         char FILE_name[MAX_FILENAME + 1];
@@ -609,16 +609,19 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         // check if we have any files to list in the chosen directory
         if (num_files_in_directory == 0) {
             // if no other files to list, just return  
+            printf("READDIR: 0 Files found in the sub_directory\n");
             return 0;
         }
 
         // othewrwise, we need to fill the buffer with our remaining files
         int file_index;
         for (file_index=0; file_index < MAX_FILES_IN_DIR; file_index++) {
+            printf("ITERATING THROUGH SUB_DIR FILES IN READDIR\n");
             // check if each file is valid
             //cs1550_file_directory current_file = subdirectory->files[file_index];
             // if the first letter of fname is NOT 0, the file has a name
             if (subdirectory->files[file_index].fname[0] != 0) {
+                printf("READDIR:  File found in the directory\n");
                 // concat the file name, and add it to our buffer
                 char file_name[MAX_FILENAME + MAX_EXTENSION + 2];
                 strcpy(file_name, subdirectory->files[file_index].fname);
@@ -629,11 +632,6 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         } // end-for, for iterating through the list of all possible files in the subdirectory
         
     } // end-else, for trying to list files in a SUB_DIRECTORY
-    /*
-	//add the user stuff (subdirs or files)
-	//the +1 skips the leading '/' on the filenames
-	filler(buf, newpath + 1, NULL, 0);
-	*/
 	return 0;
 }
 
