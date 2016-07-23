@@ -322,8 +322,34 @@ int create_directory(char *DIR_name) {
 /*
  * Get a copy of data in the subdirectory struct, so we can see what's in it
  */
-cs1550_directory_entry* get_subdirectory_struct(){
-    // code here
+cs1550_directory_entry* get_subdirectory_struct(long subdir_block_offset){
+    // Open the .disk file, get a pointer to it 
+    FILE *disk_file_ptr = fopen(".disk", "rb");
+    // handle error
+    if (disk_file_ptr == NULL) {
+        perror("Could not open .disk file. Please ensure it is in the current directory");
+    }
+
+    // seek to the location in .disk where our directory is stored, using the subdir_offset
+    long offset = BLOCK_SIZE * subdir_block_offset; // how many blocks to offfset by
+    fseek(disk_file_ptr, offset, SEEK_SET); 
+    
+    // read in the directory's data from our opened file, and handle error if needed
+    cs1550_directory_entry SUB_directory;
+    // check that it equals block size to ensure there wasn't an error reading the data, 
+    // there was actually something there, and we got all we expected
+    if (BLOCK_SIZE != fread(&SUB_directory, 1, BLOCK_SIZE, disk_file_ptr)) {
+        perror("Could not read in subdirectory entry from the .disk file");   
+    }
+
+    // get our ptr to return
+    cs1550_directory_entry *subdirectory_ptr = malloc(sizeof(SUB_directory));
+    subdirectory_ptr = SUB_directory;
+
+    // close the file
+    fclose(disk_file_ptr);
+
+    return subdirectory_ptr;
 }
 
 
@@ -331,7 +357,34 @@ cs1550_directory_entry* get_subdirectory_struct(){
  * Get a copy of the root directory struct, for us to use
  */
 cs1550_root_directory* get_root_directory_struct(){
-    // code here
+     // Open the .disk file, get a pointer to it 
+    FILE *disk_file_ptr = fopen(".disk", "rb");
+    // handle error
+    if (disk_file_ptr == NULL) {
+        perror("Could not open .disk file. Please ensure it is in the current directory");
+    }
+    
+    /* search through root directory for the directory we want... */
+
+    // First, read in the contents of the root directory struct from its binary form
+    fseek(disk_file_ptr, SEEK_SET, 0); // make sure we read from BEGINNING, since that's where the root is
+    cs1550_root_directory ROOT_dir;    // define a root directory struct
+
+    // handle error, if the root directory isn't one full block size for any reason
+    if (BLOCK_SIZE != fread(&ROOT_dir, 1, BLOCK_SIZE, disk_file_ptr)) {
+        perror("root directory wasn't loaded in currently when trying to parse the .disk file");
+    }
+
+    // get our ptr to return
+    cs1550_root_directory *root_directory_ptr = malloc(sizeof(ROOT_dir));
+    root_directory_ptr = ROOT_dir;
+
+    // close the file
+    fclose(disk_file_ptr);
+
+    // return our ptr
+    return root_directory_ptr;
+
 }
 
 /*
@@ -364,6 +417,7 @@ int write_to_subdirectory_on_disk(){
 int write_to_file_on_disk(){
     // code ehre
 }
+
 //////////////////////////////////
 ///// FILE-SYSTEM OPERATIONS /////
 //////////////////////////////////
@@ -534,7 +588,7 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         }
 
         // if we make it here, the directory is valid, so let's find it's block on the disk and grab all the file names it is storing
-
+        
 
 
         
