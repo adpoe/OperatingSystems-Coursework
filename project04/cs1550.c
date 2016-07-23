@@ -30,6 +30,7 @@
 void get_filepath(const char *filepath, char *DIR_name, char *FILE_name, char *FILE_extension); 
 long get_subdirectory_starting_block(char *DIR_name); 
 long* get_file_starting_block(const char *subdir_name, const char *extension, long subdir_offset); 
+int create_directory(char *DIR_name);
 
 ////////////////////
 ///// STRUCTS //////
@@ -209,9 +210,27 @@ long* get_file_starting_block(const char *subdir_name, const char *extension, lo
 
     // return the starting block we've found, and the filesize
     return return_vals_array;
-
 }
 
+long find_free_space(){
+    // open a file, load in root dir... iteratore through and fine where dName[0] = 0
+    // this will be our offset, once we find out many blocks from start this location is...
+    // iterate by block
+    // also check if nDirectories > maxdirsinroot
+}
+int create_directory(char *DIR_name) {
+    // open the disk file for writing
+    // Open the .disk file, get a pointer to it 
+    FILE *disk_file_ptr = fopen(".disk", "wb");
+    // handle error
+    if (disk_file_ptr == NULL) {
+        perror("Could not open .disk file. Please ensure it is in the current directory");
+    }
+
+    // seek to the location in .disk where our directory is stored, using the subdir_offset
+    // seek to start, which is beginning of root
+    fseek(disk_file_ptr, 0, SEEK_SET); 
+}
 //////////////////////////////////
 ///// FILE-SYSTEM OPERATIONS /////
 //////////////////////////////////
@@ -320,8 +339,54 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
  */
 static int cs1550_mkdir(const char *path, mode_t mode)
 {
+    printf("call to cs1550_mkdir, path is %s\n", path);
+    // cast the path an mode to void... 
 	(void) path;
 	(void) mode;
+    
+    // get our file path, to start
+    // allocate strings to hold our file paths
+    char DIR_name[MAX_FILENAME + 1];          // +1 for null terminators
+    char FILE_name[MAX_FILENAME + 1];
+    char FILE_extension[MAX_EXTENSION + 1]; 
+
+    // fill our strings with the proper values, using the sscanf provided by Dr. Misurda
+    get_filepath(path, DIR_name, FILE_name, FILE_extension);
+
+    // next, handle errors
+    // CHECK IF NAME TOO LONG
+    int dir_name_length = strlen(DIR_name);
+    if (dir_name_length > MAX_FILENAME) {
+        perror("Directory name too long. Max length is 8 characters");
+        return -ENAMETOOLONG;
+    }
+
+    // CHECK IF DIRECTORY ALREADY EXISTS
+    if (get_subdirectory_starting_block(DIR_name) != -1) {
+        // if this return value isn't -1, then we've found the directory,
+        // and therefore it already exists, so we cannot create it
+        perror("Directory name already exists under root");
+        return -EEXIST;
+    }
+     
+    // CHECK IF DIRECTORY IS NOT DIRECTLY UNDER ROOT
+    pathLen = strlen(path); 
+    int index;
+    int count = 0;
+    // count how many /'s we have
+    for (int index=0; index < pathLen; index++) {
+        if (path[index] == '\') {
+            count++;
+        }
+    }
+    // count must be 1, otherwise we aren't making this directory under the root!
+    if (count != 1) {
+        perror("New directory name must be made under root.");
+        return -EPERM; 
+    }
+
+    // IF WE MAKE IT THIS FAR, CREATE THE DIRECTORY
+    create_directory(DIR_name);
 
 	return 0;
 }
