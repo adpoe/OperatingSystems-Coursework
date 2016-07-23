@@ -24,6 +24,12 @@
 //How many files can there be in one directory?
 #define MAX_FILES_IN_DIR (BLOCK_SIZE - sizeof(int)) / ((MAX_FILENAME + 1) + (MAX_EXTENSION + 1) + sizeof(size_t) + sizeof(long))
 
+////////////////////
+//// PROTOTYPES ////
+////////////////////
+void get_filepath(const char *filepath, char *DIR_name, char *FILE_name, char *FILE_extension); 
+long get_subdirectory_starting_block(char *DIR_name); 
+long* get_file_starting_block(const char *subdir_name, const char *extension, long subdir_offset); 
 
 ////////////////////
 ///// STRUCTS //////
@@ -93,10 +99,10 @@ typedef struct cs1550_disk_block cs1550_disk_block;
  * provided in the assignment prompt. Making this its own function, in order to abstract away that process and simplify
  */
 void get_filepath(const char *filepath, char *DIR_name, char *FILE_name, char *FILE_extension) {
-    // Need to ensure all strings have nothing but nulls in them to start 
-    memset(DIR_name, '/0', (MAX_FILENAME + 1) );
-    memset(FILE_name, '/0', (MAX_FILENAME + 1) );
-    memset(FILE_extension, '/0', (MAX_EXTENSION + 1) );
+    // Need to ensure all strings have nothing but zeros in them to start 
+    memset(DIR_name, 0, (MAX_FILENAME + 1) );
+    memset(FILE_name, 0, (MAX_FILENAME + 1) );
+    memset(FILE_extension, 0, (MAX_EXTENSION + 1) );
 
     // grab the input and fill each string, using our sscanf
     sscanf(filepath, "/%[^/]/%[^.].%s", DIR_name, FILE_name, FILE_extension);
@@ -112,7 +118,7 @@ void get_filepath(const char *filepath, char *DIR_name, char *FILE_name, char *F
  * Open .disk and return the first byte of the subdirectory, if it is found, based on filename
  * If not found, return -1, to indicate ERROR
  */
-long get_subdirectory_startblock(const char *DIR_name) {
+long get_subdirectory_starting_block(char *DIR_name) {
     // Open the .disk file, get a pointer to it 
     FILE *disk_file_ptr = fopen(".disk", "rb");
     // handle error
@@ -123,7 +129,7 @@ long get_subdirectory_startblock(const char *DIR_name) {
     /* search through root directory for the directory we want... */
 
     // First, read in the contents of the root directory struct from its binary form
-    fseek(dist_file_ptr, SEEK_SET, 0); // make sure we read from BEGINNING, since that's where the root is
+    fseek(disk_file_ptr, SEEK_SET, 0); // make sure we read from BEGINNING, since that's where the root is
     cs1550_root_directory ROOT_dir;    // define a root directory struct
 
     // handle error, if the root directory isn't one full block size for any reason
@@ -159,7 +165,7 @@ long get_subdirectory_startblock(const char *DIR_name) {
  */
 long* get_file_starting_block(const char *subdir_name, const char *extension, long subdir_offset) {
     // declare our return value array
-    long return_vals_array[2];
+    long *return_vals_array = malloc(2*sizeof(long));
 
     // Open the .disk file, get a pointer to it 
     FILE *disk_file_ptr = fopen(".disk", "rb");
@@ -185,15 +191,15 @@ long* get_file_starting_block(const char *subdir_name, const char *extension, lo
     int i;
     for (i=0; i < SUB_directory.nFiles; i++) {
         // first, perform the comparison 
-        int FILENAME_comparison_result = strcmp(subdir_name, SUB_directory.files[i].name);
+        int FILENAME_comparison_result = strcmp(subdir_name, SUB_directory.files[i].fname);
         int EXTENSION_comparison_result = strcmp(extension, SUB_directory.files[i].fext); 
         // then check for a match
         if (0 == FILENAME_comparison_result && 0 == EXTENSION_comparison_result)  {
             // and if found, de-reference the starting block so we can return it, 
             // then break out of for-loop
             starting_block = i; // we return the iteration number, since that is index within our subdirectory where there was a match 
-            return_values[0] = starting_block;
-            return_values[1] = SUB_directory.files[i].fsize;
+            return_vals_array[0] = starting_block;
+            return_vals_array[1] = SUB_directory.files[i].fsize;
             break;
         }
     }
@@ -232,9 +238,9 @@ static int cs1550_getattr(const char *path, struct stat *stbuf)
         // allocate strings to hold our file paths
         char DIR_name[MAX_FILENAME + 1];          // +1 for null terminators
         char FILE_name[MAX_FILENAME + 1];
-        char FILE_extenstion[MAX_EXTENSION + 1]; 
+        char FILE_extension[MAX_EXTENSION + 1]; 
 
-        // file our strings with the proper values, using the sscanf provided by Dr. Misurda
+        // fill our strings with the proper values, using the sscanf provided by Dr. Misurda
         get_filepath(path, DIR_name, FILE_name, FILE_extension);
 
         // coming out of the last function call, our three strings will now be tokenized to hold 
@@ -252,7 +258,7 @@ static int cs1550_getattr(const char *path, struct stat *stbuf)
      	    	res = 0; //no error
             } else {
                 // otherwise, we need to find a file within this directory 
-                long return_info[2] = get_file_starting_block(DIR_name, FILE_extension, subdir_starting_block);
+                long *return_info = get_file_starting_block(DIR_name, FILE_extension, subdir_starting_block);
 
                 long file_offset = return_info[0];
                 long file_size = return_info[1];
