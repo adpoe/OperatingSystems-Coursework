@@ -31,6 +31,7 @@ void get_filepath(const char *filepath, char *DIR_name, char *FILE_name, char *F
 long get_subdirectory_starting_block(char *DIR_name); 
 long* get_file_starting_block(const char *subdir_name, const char *extension, long subdir_offset); 
 int create_directory(char *DIR_name);
+long find_next_free_directory_starting_block(void);
 
 ////////////////////
 ///// STRUCTS //////
@@ -245,7 +246,7 @@ long find_next_free_directory_starting_block(){
     
     if (ROOT_dir.nDirectories >= MAX_DIRS_IN_ROOT) {
         perror("We already have the maximum number of directories in the root. So we cannot create another.");
-        return -1
+        return -1;
     }
     // now, iterate through and find the first subdirectory with an empty name 
     long starting_block = -1;
@@ -303,7 +304,10 @@ int create_directory(char *DIR_name) {
     // now index into the proper directory entry in root, and set it's name
     // and it's starting block, for future reference
     // Keeping a 1-to-1 mapping of directory index and starting blocks, this should work out no matter what logic
-    ROOT_dir.directories[subdir_starting_block].dname = DIR_name;  
+    int index;
+    for (index=0; index < (MAX_FILENAME + 1); index++)
+        ROOT_dir.directories[subdir_starting_block].dname[index] = DIR_name[index];  
+    // need to copy ^^^ with a for-loop because the dname is of different type, it must be char[9]
     ROOT_dir.directories[subdir_starting_block].nStartBlock = subdir_starting_block;
     // also keep track of how many directories we have. add one, since we just created a new dir 
     ROOT_dir.nDirectories++;
@@ -454,11 +458,11 @@ static int cs1550_mkdir(const char *path, mode_t mode)
     }
      
     // CHECK IF DIRECTORY IS NOT DIRECTLY UNDER ROOT
-    pathLen = strlen(path); 
+    int pathLen = strlen(path); 
     int index;
     int count = 0;
     // count how many /'s we have
-    for (int index=0; index < pathLen; index++) {
+    for (index=0; index < pathLen; index++) {
         if (path[index] == '/') {
             count++;
         }
