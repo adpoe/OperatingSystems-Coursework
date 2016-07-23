@@ -142,7 +142,7 @@ long get_subdirectory_starting_block(char *DIR_name) {
 
     // handle error, if the root directory isn't one full block size for any reason
     if (BLOCK_SIZE != fread(&ROOT_dir, 1, BLOCK_SIZE, disk_file_ptr)) {
-        perror("root directory wasn't loaded in currently when trying to parse the .disk file");
+        perror("GET_SUBDIR_STARTING_BLOCK: root directory wasn't loaded in currently when trying to parse the .disk file");
     }
     
     // now, iterate through and compare the directory found in .disk, to the one we're looking for
@@ -229,6 +229,7 @@ long find_next_free_directory_starting_block(){
     // iterate by block
     // also check if nDirectories > maxdirsinroot
     
+    printf("FIND_NEXT_FREE_DIR: Inside find next free dir.\n");
     // open the disk file for reading 
     // Open the .disk file, get a pointer to it 
     FILE *disk_file_ptr = fopen(".disk", "rb");
@@ -246,7 +247,7 @@ long find_next_free_directory_starting_block(){
 
     // handle error, if the root directory isn't one full block size for any reason
     if (BLOCK_SIZE != fread(&ROOT_dir, 1, BLOCK_SIZE, disk_file_ptr)) {
-        perror("root directory wasn't loaded in currently when trying to parse the .disk file");
+        perror("FIND_NEXT_FREE_DIR: root directory wasn't loaded in currently when trying to parse the .disk file");
         return -1;
     }
     
@@ -257,11 +258,13 @@ long find_next_free_directory_starting_block(){
     // now, iterate through and find the first subdirectory with an empty name 
     long starting_block = -1;
     int i;
-    for (i=0; i < ROOT_dir.nDirectories; i++) {
+    for (i=0; i < MAX_DIRS_IN_ROOT; i++) {
         // find the first directory name that starts with a 0, meaning it is un-initialized 
+        printf("FIND_NEXT_FREE_DIR: Iterating, and at index %d, name is %s \n", i, ROOT_dir.directories[i].dname);
         if (ROOT_dir.directories[i].dname[0] == 0)  {
             // and if found, de-reference the starting block so we can return it, 
-            starting_block = ROOT_dir.directories[i].nStartBlock;
+            starting_block = i; //ROOT_dir.directories[i].nStartBlock; /* >>> this probably needs to just be the index.. it wouldn't be set a priori */
+            // starting block is index + 1, because block 0 is the root
             // break out of loop
             break;
         }
@@ -281,7 +284,9 @@ int create_directory(char *DIR_name) {
     // need how many bytes to seek to?
     // it's size of block * how many blocks into the root we've iterated
     // and at this location, we create the DIRECTORY struct
+    printf("CREATE_DIRECTORY:  Attempting to create\n");
     long subdir_starting_block = find_next_free_directory_starting_block();
+    printf("CREATE_DIRECTORY: Result of find_next_free_directory_starting_block() == %d\n", subdir_starting_block);
     // handle error, if there are no free directories, return -1
     if (subdir_starting_block == -1) 
         return -1;
@@ -300,12 +305,20 @@ int create_directory(char *DIR_name) {
 
     // define a root directory struct for us to use
     cs1550_root_directory ROOT_dir;
-
+    /* >>> DON'T NEED TO READ IN ROOT HERE;; WE'RE **WRITING** TO IT 
     // handle error, if the root directory isn't one full block size for any reason
     if (BLOCK_SIZE != fread(&ROOT_dir, 1, BLOCK_SIZE, disk_file_ptr)) {
-        perror("root directory wasn't loaded in currently when trying to parse the .disk file");
+        perror("CREATE_DIRECTORY: root directory wasn't loaded in currently when trying to parse the .disk file");
         return -1;
     }
+    */
+
+
+    // instead, we need to fwrite into the binary on the disk, in the proper location....
+
+    // TODO:   Update data in the root, in block zero, offset by whatever comes before our array... 
+    //         Update data in the block designated by our index... need to do +1 to get to it, when we multiply by block size, since 0 is the root
+
 
     // now index into the proper directory entry in root, and set it's name
     // and it's starting block, for future reference
@@ -641,7 +654,7 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
  */
 static int cs1550_mkdir(const char *path, mode_t mode)
 {
-    printf("call to cs1550_mkdir, path is %s\n", path);
+    printf("MKDIR:  call to cs1550_mkdir, path is %s\n", path);
     // cast the path an mode to void... 
 	(void) path;
 	(void) mode;
@@ -687,9 +700,12 @@ static int cs1550_mkdir(const char *path, mode_t mode)
         return -EPERM; 
     }
 
+    printf("MKDIR: TRYING TO CREATE DIRECTORY\n");
     // IF WE MAKE IT THIS FAR, CREATE THE DIRECTORY
     // handle error
-    if (create_directory(DIR_name) != 0) {
+    int directory_return_value = create_directory(DIR_name);  
+    if (directory_return_value != 0) {
+        printf("MKDIR ERROR: for: dir_name: %s,   return_val: %d\n", DIR_name, directory_return_value);   
         perror("Could not create directory");
         return -1;
     }
