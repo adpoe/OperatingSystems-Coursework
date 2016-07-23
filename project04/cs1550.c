@@ -25,15 +25,6 @@
 #define MAX_FILES_IN_DIR (BLOCK_SIZE - sizeof(int)) / ((MAX_FILENAME + 1) + (MAX_EXTENSION + 1) + sizeof(size_t) + sizeof(long))
 
 ////////////////////
-//// PROTOTYPES ////
-////////////////////
-void get_filepath(const char *filepath, char *DIR_name, char *FILE_name, char *FILE_extension); 
-long get_subdirectory_starting_block(char *DIR_name); 
-long* get_file_starting_block(const char *subdir_name, const char *extension, long subdir_offset); 
-int create_directory(char *DIR_name);
-long find_next_free_directory_starting_block(void);
-
-////////////////////
 ///// STRUCTS //////
 ////////////////////
 
@@ -89,6 +80,21 @@ struct cs1550_disk_block
 };
 
 typedef struct cs1550_disk_block cs1550_disk_block;
+
+////////////////////
+//// PROTOTYPES ////
+////////////////////
+void get_filepath(const char *filepath, char *DIR_name, char *FILE_name, char *FILE_extension); 
+long get_subdirectory_starting_block(char *DIR_name); 
+long* get_file_starting_block(const char *subdir_name, const char *extension, long subdir_offset); 
+int create_directory(char *DIR_name);
+long find_next_free_directory_starting_block(void);
+cs1550_directory_entry* get_subdirectory_struct(long subdir_block_offset);
+cs1550_root_directory* get_root_directory_struct(void);
+cs1550_disk_block* get_disk_block(long block_offset);
+int write_to_root_directory_on_disk(void);
+int write_to_subdirectory_on_disk(long block_offset);
+int write_to_file_on_disk(void);
 
 /////////////////////////////////
 /////// HELPER FUNCTIONS ////////
@@ -344,7 +350,7 @@ cs1550_directory_entry* get_subdirectory_struct(long subdir_block_offset){
 
     // get our ptr to return
     cs1550_directory_entry *subdirectory_ptr = malloc(sizeof(SUB_directory));
-    subdirectory_ptr = SUB_directory;
+    subdirectory_ptr = &SUB_directory;
 
     // close the file
     fclose(disk_file_ptr);
@@ -377,7 +383,7 @@ cs1550_root_directory* get_root_directory_struct(){
 
     // get our ptr to return
     cs1550_root_directory *root_directory_ptr = malloc(sizeof(ROOT_dir));
-    root_directory_ptr = ROOT_dir;
+    root_directory_ptr = &ROOT_dir;
 
     // close the file
     fclose(disk_file_ptr);
@@ -390,8 +396,10 @@ cs1550_root_directory* get_root_directory_struct(){
 /*
  * Get a copy of the a disk block, so we can use it's data
  */
-cs1550_disk_block* get_disk_block() {
+cs1550_disk_block* get_disk_block(long disk_offset) {
     // code here
+    (void) disk_offset;
+    return NULL;
 }
 
 
@@ -401,13 +409,16 @@ cs1550_disk_block* get_disk_block() {
  */
 int write_to_root_directory_on_disk(){
     // code here
+    return -1;
 }
 
 /*
  * Write data to a subdirectory, need its block index and the data to write
  */
-int write_to_subdirectory_on_disk(){
+int write_to_subdirectory_on_disk(long disk_offset){
     // code here
+    (void) disk_offset;
+    return -1;
 }
 
 /*
@@ -415,7 +426,8 @@ int write_to_subdirectory_on_disk(){
  * May also want to support an append. Can do that that with 0/1 variable if necessary.
  */
 int write_to_file_on_disk(){
-    // code ehre
+    // code here
+    return -1;
 }
 
 //////////////////////////////////
@@ -526,7 +538,7 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         // and pass their names to the filler function
         FILE *disk_file_ptr = fopen(".disk", "rb"); 
         // handle read error on fopen
-        if (NULL == disk_fil_ptr) {
+        if (NULL == disk_file_ptr) {
             perror("Could not open .disk file, in READDIR syscall");
             return -ENOENT;
         }
@@ -541,11 +553,11 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
         // iterate through the root and grab all valid names, fill them in the buffer
         int directory_index;
-        for (directory_index=0; i<MAX_DIRS_IN_ROOT; i++) {
+        for (directory_index=0; directory_index<MAX_DIRS_IN_ROOT; directory_index++) {
             // check if name is valid. if it's valid, first letter will not be a 0
             if (ROOT_dir.directories[directory_index].dname[0] != 0) {
                 // if we're here, name is valid, so put it in the filler, buffer
-                filler(buf, ROOT_dir.directories[directory_index].dame, NULL, 0);
+                filler(buf, ROOT_dir.directories[directory_index].dname, NULL, 0);
             } // end-if, checking if names are valid
         } // end for-loop, iterating through directories in the root
 
@@ -604,14 +616,14 @@ static int cs1550_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         int file_index;
         for (file_index=0; file_index < MAX_FILES_IN_DIR; file_index++) {
             // check if each file is valid
-            cs1550_file_directory current_file = subdirectory->files[file_index];
+            //cs1550_file_directory current_file = subdirectory->files[file_index];
             // if the first letter of fname is NOT 0, the file has a name
-            if (current_file.fname[0] != 0) {
+            if (subdirectory->files[file_index].fname[0] != 0) {
                 // concat the file name, and add it to our buffer
                 char file_name[MAX_FILENAME + MAX_EXTENSION + 2];
-                strcpy(file_name, current_file.fname);
-                srcat(file_name, ".");
-                strcat(file_name, current_file.fext);
+                strcpy(file_name, subdirectory->files[file_index].fname);
+                strcat(file_name, ".");
+                strcat(file_name, subdirectory->files[file_index].fext);
                 filler(buf, file_name, NULL, 0); 
             } // end-if, for checking if file name is present
         } // end-for, for iterating through the list of all possible files in the subdirectory
@@ -703,6 +715,7 @@ static int cs1550_rmdir(const char *path)
  */
 static int cs1550_mknod(const char *path, mode_t mode, dev_t dev)
 {
+    (void) path; // for now, cast to avoid error
 	(void) mode;
 	(void) dev;
 	return 0;
