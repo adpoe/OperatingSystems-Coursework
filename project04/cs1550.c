@@ -157,8 +157,11 @@ long get_subdirectory_startblock(const char *DIR_name) {
 /*
  *  Get file starting block within a subdirectory
  */
-long get_file_starting_block(const char *subdir_name, const char *extension, long subdir_offset) {
-     // Open the .disk file, get a pointer to it 
+long* get_file_starting_block(const char *subdir_name, const char *extension, long subdir_offset) {
+    // declare our return value array
+    long return_vals_array[2];
+
+    // Open the .disk file, get a pointer to it 
     FILE *disk_file_ptr = fopen(".disk", "rb");
     // handle error
     if (disk_file_ptr == NULL) {
@@ -189,6 +192,8 @@ long get_file_starting_block(const char *subdir_name, const char *extension, lon
             // and if found, de-reference the starting block so we can return it, 
             // then break out of for-loop
             starting_block = i; // we return the iteration number, since that is index within our subdirectory where there was a match 
+            return_values[0] = starting_block;
+            return_values[1] = SUB_directory.files[i].fsize;
             break;
         }
     }
@@ -196,8 +201,8 @@ long get_file_starting_block(const char *subdir_name, const char *extension, lon
     // close the .disk file, once we're done
     fclose(disk_file_ptr);
 
-    // return the starting block we've found
-    return starting_block;
+    // return the starting block we've found, and the filesize
+    return return_vals_array;
 
 }
 
@@ -218,6 +223,7 @@ static int cs1550_getattr(const char *path, struct stat *stbuf)
    
 	//is path the root dir?
 	if (strcmp(path, "/") == 0) {
+        // if yes, we're good
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
 	} else {
@@ -246,28 +252,28 @@ static int cs1550_getattr(const char *path, struct stat *stbuf)
      	    	res = 0; //no error
             } else {
                 // otherwise, we need to find a file within this directory 
-                // CODE HERE
-                // fopen and seek to the file...
-                    // get_file_name
-            }
-            
-        
+                long return_info[2] = get_file_starting_block(DIR_name, FILE_extension, subdir_starting_block);
 
+                long file_offset = return_info[0];
+                long file_size = return_info[1];
+                // if file is found, then file_offset will NOT be a -1
+                if (file_offset != -1) {
+                    //regular file, probably want to be read and write
+	    	        stbuf->st_mode = S_IFREG | 0666; 
+	    	        stbuf->st_nlink = 1; //file links
+	    	        stbuf->st_size = file_size;  //file size - make sure you replace with real size!
+	    	        res = 0; // no error
+                } else {
+                    // otherwise, there's an error
+                    res = -ENOENT; 
+                } // end-if for checking if we found a file INSIDE the directory, when FILENAME was expected 
+            } // end-if for SUB_DIRECTORY FOUND, SEARCH FILENAME 
         } // end-if for SUB_DIRECTORY FOUND 
-
-
-	    // Check if name is a regular file
-        // THIS IS FOR A REGULAR FILE **INSIDE** ROOT, not in a subdir
-	    /*
-	    	//regular file, probably want to be read and write
-	    	stbuf->st_mode = S_IFREG | 0666; 
-	    	stbuf->st_nlink = 1; //file links
-	    	stbuf->st_size = 0; //file size - make sure you replace with real size!
-	    	res = 0; // no error
-	    */
-
-		//Else return that path doesn't exist
-		res = -ENOENT;
+        else { 
+            // If we hit this else, then SUB_DIRECTORY was NOT found
+		    //Else return that path doesn't exist
+		    res = -ENOENT;
+        }
     }	
 	return res;
 }
