@@ -154,6 +154,53 @@ long get_subdirectory_startblock(const char *DIR_name) {
     
 }
 
+/*
+ *  Get file starting block within a subdirectory
+ */
+long get_file_starting_block(const char *subdir_name, const char *extension, long subdir_offset) {
+     // Open the .disk file, get a pointer to it 
+    FILE *disk_file_ptr = fopen(".disk", "rb");
+    // handle error
+    if (disk_file_ptr == NULL) {
+        perror("Could not open .disk file. Please ensure it is in the current directory");
+    }
+
+    // seek to the location in .disk where our directory is stored, using the subdir_offset
+    long offset = BLOCK_SIZE * subdir_offset; // how many blocks to offfset by
+    fseek(disk_file_ptr, offset, SEEK_SET); 
+    
+    // read in the directory's data from our opened file, and handle error if needed
+    cs1550_directory_entry SUB_directory;
+    // check that it equals block size to ensure there wasn't an error reading the data, 
+    // there was actually something there, and we got all we expected
+    if (BLOCK_SIZE != fread(&SUB_directory, 1, BLOCK_SIZE, disk_file_ptr)) {
+        perror("Could not read in subdirectory entry from the .disk file");   
+    }
+
+    // now, iterate through and compare the directory found in .disk, to the one we're looking for
+    long starting_block = -1;
+    int i;
+    for (i=0; i < SUB_directory.nFiles; i++) {
+        // first, perform the comparison 
+        int FILENAME_comparison_result = strcmp(subdir_name, SUB_directory.files[i].name);
+        int EXTENSION_comparison_result = strcmp(extension, SUB_directory.files[i].fext); 
+        // then check for a match
+        if (0 == FILENAME_comparison_result && 0 == EXTENSION_comparison_result)  {
+            // and if found, de-reference the starting block so we can return it, 
+            // then break out of for-loop
+            starting_block = i; // we return the iteration number, since that is index within our subdirectory where there was a match 
+            break;
+        }
+    }
+    
+    // close the .disk file, once we're done
+    fclose(disk_file_ptr);
+
+    // return the starting block we've found
+    return starting_block;
+
+}
+
 //////////////////////////////////
 ///// FILE-SYSTEM OPERATIONS /////
 //////////////////////////////////
@@ -187,29 +234,41 @@ static int cs1550_getattr(const char *path, struct stat *stbuf)
         // coming out of the last function call, our three strings will now be tokenized to hold 
         // their respective elements of the file's path
         // So, next, we we need to determine if these tokens correspond to a valid subdirectory
-        get_subdirectory(DIR_name);
+        long subdir_starting_block = get_subdirectory_starting_block(DIR_name);
+        // if the starting block isn't -1, then we've found the directory we're looking for
+        // SUBDIRECTORY FOUND
+        if (subdir_starting_block != -1) {
+            // Check if we are looking for a file name WITHIN that directory, or the directory itself 
+            if ( '\0' == FILE_name[0] ) { 
+                // if the first value in our filename is a null, then there's no filename, return the directory
+            	stbuf->st_mode = S_IFDIR | 0755;
+	    	    stbuf->st_nlink = 2;
+     	    	res = 0; //no error
+            } else {
+                // otherwise, we need to find a file within this directory 
+                // CODE HERE
+                // fopen and seek to the file...
+                    // get_file_name
+            }
+            
         
 
+        } // end-if for SUB_DIRECTORY FOUND 
 
-	/* 
-		//Might want to return a structure with these fields
-		stbuf->st_mode = S_IFDIR | 0755;
-		stbuf->st_nlink = 2;
-		res = 0; //no error
-	*/
 
-	//Check if name is a regular file
-	/*
-		//regular file, probably want to be read and write
-		stbuf->st_mode = S_IFREG | 0666; 
-		stbuf->st_nlink = 1; //file links
-		stbuf->st_size = 0; //file size - make sure you replace with real size!
-		res = 0; // no error
-	*/
+	    // Check if name is a regular file
+        // THIS IS FOR A REGULAR FILE **INSIDE** ROOT, not in a subdir
+	    /*
+	    	//regular file, probably want to be read and write
+	    	stbuf->st_mode = S_IFREG | 0666; 
+	    	stbuf->st_nlink = 1; //file links
+	    	stbuf->st_size = 0; //file size - make sure you replace with real size!
+	    	res = 0; // no error
+	    */
 
 		//Else return that path doesn't exist
 		res = -ENOENT;
-	}
+    }	
 	return res;
 }
 
