@@ -418,27 +418,59 @@ cs1550_root_directory* get_root_directory_struct(){
  * Get a copy of the a disk block, so we can use it's data
  */
 cs1550_disk_block* get_disk_block(long disk_offset) {
-    // code here
-    (void) disk_offset;
-    return NULL;
+
+    // Open the .disk file, get a pointer to it 
+    FILE *disk_file_ptr = fopen(".disk", "rb");
+    // handle error
+    if (disk_file_ptr == NULL) {
+        perror("GET DISK BLOCK: Could not open .disk file. Please ensure it is in the current directory");
+    }
+
+    // seek to the location in .disk where our directory is stored, using the subdir_offset
+    long offset = BLOCK_SIZE * disk_offset; // how many blocks to offfset by
+    fseek(disk_file_ptr, offset, SEEK_SET); 
+    
+    // read in the directory's data from our opened file, and handle error if needed
+    cs1550_disk_block DISK_block;
+    // check that it equals block size to ensure there wasn't an error reading the data, 
+    // there was actually something there, and we got all we expected
+    if (BLOCK_SIZE != fread(&DISK_block, 1, BLOCK_SIZE, disk_file_ptr)) {
+        perror("DISK BLOCK: Could not read in DISK BLOCK entry from the .disk file");   
+    }
+
+    // get our ptr to return
+    cs1550_disk_block *disk_block_ptr = malloc(sizeof(DISK_block));
+    disk_block_ptr = &DISK_block;
+
+    // close the file
+    fclose(disk_file_ptr);
+
+    return disk_block_ptr;
 }
 
 
 /*
  * Write data the root directory on our disk
  * Take all possible values, and if NOT null, use the to write
+ * pass in an updated root directory -- and overwrite
  */
-int write_to_root_directory_on_disk(){
-    // code here
+int write_to_root_directory_on_disk(cs1550_root_directory *updated_root){
+    // open the .disk file
+    // write root at offset 0
     return -1;
 }
 
 /*
  * Write data to a subdirectory, need its block index and the data to write
+ * pass in an updated subdirectory
  */
-int write_to_subdirectory_on_disk(long disk_offset){
+int write_to_subdirectory_on_disk(long disk_offset, cs1550_directory_entry *updated_directory){
     // code here
     (void) disk_offset;
+
+    // open .disk file
+    // seek to disk offset
+    // write the updated directory
     return -1;
 }
 
@@ -446,8 +478,11 @@ int write_to_subdirectory_on_disk(long disk_offset){
  * Write data to a file on disk. Need a block index and the data to write
  * May also want to support an append. Can do that that with 0/1 variable if necessary.
  */
-int write_to_file_on_disk(){
+int write_to_file_on_disk(long disk_offset, cs1550_disk_block *updated_disk_block){
     // code here
+    // open .disk file
+    // seek to disk offset
+    // write the updated disk block
     return -1;
 }
 
