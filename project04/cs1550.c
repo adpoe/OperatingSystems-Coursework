@@ -455,9 +455,30 @@ cs1550_disk_block* get_disk_block(long disk_offset) {
  * pass in an updated root directory -- and overwrite
  */
 int write_to_root_directory_on_disk(cs1550_root_directory *updated_root){
+    /* Process */
     // open the .disk file
     // write root at offset 0
-    return -1;
+
+    /* Code */
+    // open the disk file for writing
+    // Open the .disk file, get a pointer to it 
+    FILE *disk_file_ptr = fopen(".disk", "r+b"); // maybe make this r+? 
+    // handle error
+    if (disk_file_ptr == NULL) {
+        perror("CREATE_DIR:  Could not open .disk file. Please ensure it is in the current directory");
+    }
+    // NOW, WRITE OUR UPDATE ROOT DIR BACK TO THE DISK
+    fseek(disk_file_ptr, 0, SEEK_SET); 
+    // write back and handle error
+    if (BLOCK_SIZE != fwrite(&updated_root, 1, BLOCK_SIZE, disk_file_ptr)) {
+        printf("WRITE_ROOT_DIR: Error writing ROOT_DIR's data back to the binary .disk file\n"); 
+        return -1;
+    }
+    // close the .disk file, once we're done
+    fclose(disk_file_ptr);
+
+    // return 0 to indicate all is well
+    return 0;
 }
 
 /*
@@ -465,13 +486,33 @@ int write_to_root_directory_on_disk(cs1550_root_directory *updated_root){
  * pass in an updated subdirectory
  */
 int write_to_subdirectory_on_disk(long disk_offset, cs1550_directory_entry *updated_directory){
-    // code here
-    (void) disk_offset;
-
+    /* Process */
     // open .disk file
     // seek to disk offset
     // write the updated directory
-    return -1;
+
+    /* Code */
+    FILE *disk_file_ptr = fopen(".disk", "r+b"); // r+ to read AND write 
+    // handle error
+    if (disk_file_ptr == NULL) {
+        perror("CREATE_DIR:  Could not open .disk file. Please ensure it is in the current directory");
+    }
+
+    // seek to the location in .disk where our directory is stored, using the subdir_offset
+    long offset = BLOCK_SIZE * disk_offset; // how many blocks to offfset by
+    fseek(disk_file_ptr, offset, SEEK_SET); 
+ 
+    // write back and handle error
+    if (BLOCK_SIZE != fwrite(&updated_directory, 1, BLOCK_SIZE, disk_file_ptr)) {
+        printf("WRITE_SUB_DIR: Error writing SUB_DIR's data back to the binary .disk file\n"); 
+        return -1;
+    }
+    // close the .disk file, once we're done
+    fclose(disk_file_ptr);
+
+    // return 0 to indicate all is well
+    return 0;
+
 }
 
 /*
@@ -479,11 +520,32 @@ int write_to_subdirectory_on_disk(long disk_offset, cs1550_directory_entry *upda
  * May also want to support an append. Can do that that with 0/1 variable if necessary.
  */
 int write_to_file_on_disk(long disk_offset, cs1550_disk_block *updated_disk_block){
-    // code here
+    /* Process */
     // open .disk file
     // seek to disk offset
     // write the updated disk block
-    return -1;
+
+    /* Code */
+    FILE *disk_file_ptr = fopen(".disk", "r+b"); // r+ to read AND write 
+    // handle error
+    if (disk_file_ptr == NULL) {
+        perror("CREATE_DIR:  Could not open .disk file. Please ensure it is in the current directory");
+    }
+
+    // seek to the location in .disk where our directory is stored, using the subdir_offset
+    long offset = BLOCK_SIZE * disk_offset; // how many blocks to offfset by
+    fseek(disk_file_ptr, offset, SEEK_SET); 
+ 
+    // write back and handle error
+    if (BLOCK_SIZE != fwrite(&updated_disk_block, 1, BLOCK_SIZE, disk_file_ptr)) {
+        printf("WRITE_SUB_DIR: Error writing SUB_DIR's data back to the binary .disk file\n"); 
+        return -1;
+    }
+    // close the .disk file, once we're done
+    fclose(disk_file_ptr);
+
+    // return 0 to indicate all is well
+    return 0;
 }
 
 //////////////////////////////////
