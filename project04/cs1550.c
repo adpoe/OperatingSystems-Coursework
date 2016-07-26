@@ -92,9 +92,9 @@ long find_next_free_directory_starting_block(void);
 cs1550_directory_entry* get_subdirectory_struct(long subdir_block_offset);
 cs1550_root_directory* get_root_directory_struct(void);
 cs1550_disk_block* get_disk_block(long block_offset);
-int write_to_root_directory_on_disk(void);
-int write_to_subdirectory_on_disk(long block_offset);
-int write_to_file_on_disk(void);
+int write_to_root_directory_on_disk(cs1550_root_directory *updated_root);
+int write_to_subdirectory_on_disk(long block_offset, cs1550_directory_entry *updated_directory);
+int write_to_file_on_disk(long disk_offset, cs1550_disk_block *updated_disk_block);
 
 /////////////////////////////////
 /////// HELPER FUNCTIONS ////////
@@ -286,7 +286,7 @@ int create_directory(char *DIR_name) {
     // and at this location, we create the DIRECTORY struct
     printf("CREATE_DIRECTORY:  Attempting to create\n");
     long subdir_starting_block = find_next_free_directory_starting_block();
-    printf("CREATE_DIRECTORY: Result of find_next_free_directory_starting_block() == %d\n", subdir_starting_block);
+    printf("CREATE_DIRECTORY: Result of find_next_free_directory_starting_block() == %ld\n", subdir_starting_block);
     // handle error, if there are no free directories, return -1
     if (subdir_starting_block == -1) 
         return -1;
