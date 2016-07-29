@@ -231,8 +231,8 @@ long find_next_free_directory_starting_block(){
     
     printf("FIND_NEXT_FREE_DIR: Inside find next free dir.\n");
     // open the disk file for reading 
-    // Open the .disk file, get a pointer to it 
-    FILE *disk_file_ptr = fopen(".disk", "rb");
+    // open the .disk file, get a pointer to it 
+    fILE *disk_file_ptr = fopen(".disk", "rb");
     // handle error
     if (disk_file_ptr == NULL) {
         perror("Could not open .disk file. Please ensure it is in the current directory");
@@ -548,6 +548,76 @@ int write_to_file_on_disk(long disk_offset, cs1550_disk_block *updated_disk_bloc
     return 0;
 }
 
+/*
+ * Find the next available location on disk at which we can store a file
+ */
+long find_next_free_file_block() {
+    // print where we are, to trace
+    printf("FIND_NEXT_FREE_FILE_BLOCK:  Inside next free file.\n");
+
+    // set the return value to -1, as default, meaning nothing was found
+    int next_free_block_offset = -1;
+
+    // open the disk file for reading 
+    // open the .disk file, get a pointer to it 
+    fILE *disk_file_ptr = fopen(".disk", "rb");
+    // handle error
+    if (disk_file_ptr == NULL) {
+        perror("Could not open .disk file. Please ensure it is in the current directory");
+    }
+    // get the file's size
+    int file_size_in_bytes;
+    fseek(disk_file_ptr, 0, SEEK_END); // seek to end of file
+    file_size_in_bytes = ftell(disk_file_ptr); 
+    fseek(disk_file_ptr, 0, SEEK_SET); // seek back to the beginning of file
+
+    // seek to the location in .disk where our files are stored 
+    int file_section_start_byte = (1 + MAX_FILES_IN_DIR) * BLOCK_SIZE 
+    fseek(disk_file_ptr, file_section_start_byte, SEEK_SET); 
+
+    // determine how many file blocks TOTAL, we have to test
+    int total_file_blocks = (file_size_in_bytes - file_section_start_byte) / BLOCK_SIZE  
+
+    // define a disk block, "File Entry" for us to use
+    cs1550_disk_block DISK_block;
+
+    // SEEK UNTIL WE REACH FILE END, LOADING EACH FILE BLOCK
+    int file_index;
+    for (file file_index=0; file_index < total_file_blocks; file_index++) 
+    {
+        printf("FIND_NEXT_FREE_FILE_LOCATION: Iterating through file section on .disk at iteration %d\n", file_index);
+
+        // LOAD IN THE BLOCK, CHECK IT'S OKAY
+        // handle error, if the file block read in isn't one full block size for any reason
+        if (BLOCK_SIZE != fread(&DISK_block, 1, BLOCK_SIZE, disk_file_ptr)) {
+            perror("FIND_NEXT_FREE_FILE_LOCATION: disk blck was't loaded in correctly when trying to parse the .disk file");
+            return -1;
+        }
+
+        // THEN CHECK IF THE 0th byte of our data == 0
+        if (DISK_block.data[0] == 0)  {
+            // IF YES --> it's free
+            printf("FIND_NEXT_FREE_FILE_LOACTION: Found free block at: %d\n", file_index);
+            // get our return value, and break out of the loop
+            next_free_block_offset = file_index;
+            break;
+        }
+        // IF NO --> keep going, it's being used
+
+        // fseek 512 more bytes, so we can test in the next loop iteration
+        fseek(disk_file_ptr, BLOCK_SIZE, SEEK_CUR);
+    }
+    // ONCE WE REACH END OF FILE, RETURN ERROR, NOTHING IS FREE
+    // and if we reach this far, return value will still be -1, 
+    // it should never have been set in the loop
+    
+    // close the .disk file, once we're done
+    fclose(disk_file_ptr);
+
+    // return what we've found
+    return next_free_block_offset; 
+}
+
 //////////////////////////////////
 ///// FILE-SYSTEM OPERATIONS /////
 //////////////////////////////////
@@ -838,6 +908,17 @@ static int cs1550_mknod(const char *path, mode_t mode, dev_t dev)
 	(void) mode;
 	(void) dev;
 	return 0;
+    // Parse the path
+    // Open the directory entry
+        // Make sure entry is valid
+    // Find the next available file, get the block offset number 
+        // if NOTHING left, error  
+    // Updated the directory entry to hold the new block offset number as a file index
+        // Increment # of files in the directory entry
+        // Set the filename in the directory entry
+        // Add the element to the directories array
+    // Write The Subdirectory entry we've updated back to the .disk
+
 }
 
 /*
