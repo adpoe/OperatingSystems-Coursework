@@ -95,6 +95,7 @@ cs1550_disk_block* get_disk_block(long block_offset);
 int write_to_root_directory_on_disk(cs1550_root_directory *updated_root);
 int write_to_subdirectory_on_disk(long block_offset, cs1550_directory_entry *updated_directory);
 int write_to_file_on_disk(long disk_offset, cs1550_disk_block *updated_disk_block);
+long find_next_free_file_block(void);
 
 /////////////////////////////////
 /////// HELPER FUNCTIONS ////////
@@ -232,7 +233,7 @@ long find_next_free_directory_starting_block(){
     printf("FIND_NEXT_FREE_DIR: Inside find next free dir.\n");
     // open the disk file for reading 
     // open the .disk file, get a pointer to it 
-    fILE *disk_file_ptr = fopen(".disk", "rb");
+    FILE *disk_file_ptr = fopen(".disk", "rb");
     // handle error
     if (disk_file_ptr == NULL) {
         perror("Could not open .disk file. Please ensure it is in the current directory");
@@ -560,7 +561,7 @@ long find_next_free_file_block() {
 
     // open the disk file for reading 
     // open the .disk file, get a pointer to it 
-    fILE *disk_file_ptr = fopen(".disk", "rb");
+    FILE *disk_file_ptr = fopen(".disk", "rb");
     // handle error
     if (disk_file_ptr == NULL) {
         perror("Could not open .disk file. Please ensure it is in the current directory");
@@ -572,18 +573,18 @@ long find_next_free_file_block() {
     fseek(disk_file_ptr, 0, SEEK_SET); // seek back to the beginning of file
 
     // seek to the location in .disk where our files are stored 
-    int file_section_start_byte = (1 + MAX_FILES_IN_DIR) * BLOCK_SIZE 
+    int file_section_start_byte = (1 + MAX_FILES_IN_DIR) * BLOCK_SIZE; 
     fseek(disk_file_ptr, file_section_start_byte, SEEK_SET); 
 
     // determine how many file blocks TOTAL, we have to test
-    int total_file_blocks = (file_size_in_bytes - file_section_start_byte) / BLOCK_SIZE  
+    int total_file_blocks = (file_size_in_bytes - file_section_start_byte) / BLOCK_SIZE;  
 
     // define a disk block, "File Entry" for us to use
     cs1550_disk_block DISK_block;
 
     // SEEK UNTIL WE REACH FILE END, LOADING EACH FILE BLOCK
     int file_index;
-    for (file file_index=0; file_index < total_file_blocks; file_index++) 
+    for (file_index=0; file_index < total_file_blocks; file_index++) 
     {
         printf("FIND_NEXT_FREE_FILE_LOCATION: Iterating through file section on .disk at iteration %d\n", file_index);
 
@@ -952,7 +953,7 @@ static int cs1550_mknod(const char *path, mode_t mode, dev_t dev)
     // iterate through the file array and check each name
     for (file_index = 0; file_index < subdirectory->nFiles; file_index++)
     {
-        if (strcmp(subdirectory->files[file_index], FILE_name) == 0) 
+        if (strcmp(subdirectory->files[file_index].fname, FILE_name) == 0) 
         {
             file_exists = 1;
             break;
@@ -970,7 +971,7 @@ static int cs1550_mknod(const char *path, mode_t mode, dev_t dev)
     // Find the next available file, get the block offset number 
     long next_free_file_block = find_next_free_file_block();
         // if NOTHING left, error  
-    if (next_free_file_block = -1) {
+    if (next_free_file_block == -1) {
         // error meaning that there's no room left
         printf("MKNOD: No room left for file entries in .disk\n");
         return -1;
@@ -978,14 +979,28 @@ static int cs1550_mknod(const char *path, mode_t mode, dev_t dev)
     // Updated the directory entry to hold the new block offset number as a file index
         // Increment # of files in the directory entry
     subdirectory->nFiles++;
+    int nFiles = subdirectory->nFiles;
         // Add the element to the directories array
         // And set all the values for the directory entry
-    subdirectory->files[nFiles]->fname = FILE_name;
-    subdirectory->files[nFiles]->fext  = FILE_extension;
-    subdirectory->files[nFiles]->fsize = 0;
-    subdirectory->files[nFiles]->startBlock = next_free_file_block;
+    // need to make files that are assignable
+    
+    // First, assign the file name, char by char 
+    int i; 
+    for (i=0; i<9; i++) {
+        subdirectory->files[nFiles].fname[i] = FILE_name[i];
+    }
 
-    // Write The Subdirectory entry we've updated back to the .disk
+    // Then, assign the file ext, char by char
+    int j; 
+    for (j=0; j<9; j++) {
+        subdirectory->files[nFiles].fext[j] = FILE_extension[j];
+    }
+
+    // now assign size and start block
+    subdirectory->files[nFiles].fsize = 0;
+    subdirectory->files[nFiles].nStartBlock = next_free_file_block;
+
+    // Finally, WRITE the Subdirectory entry we've updated back to the .disk
     int write_return_value = write_to_subdirectory_on_disk(subdir_starting_block, subdirectory);
     // handle error
     if (write_return_value == -1) {
