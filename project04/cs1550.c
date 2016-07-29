@@ -904,20 +904,97 @@ static int cs1550_rmdir(const char *path)
  */
 static int cs1550_mknod(const char *path, mode_t mode, dev_t dev)
 {
-    (void) path; // for now, cast to avoid error
+    //(void) path; // for now, cast to avoid error
 	(void) mode;
 	(void) dev;
 	return 0;
+
     // Parse the path
+    char DIR_name[MAX_FILENAME + 1];
+    char FILE_name[MAX_FILENAME + 1];
+    char FILE_extension[MAX_EXTENSION + 1];
+        // fill all declared strings above with proper values
+    get_filepath(path, DIR_name, FILE_name, FILE_extension);
+
+    // CHECK FOR ERRORS
+    // Is name length beyond 8.3 chars?
+    if (strlen(DIR_name) > 8 || strlen(FILE_extension) > 3) {
+        return -ENAMETOOLONG;
+    }
+
+    // Are we creating file in the root directory?
+    int char_index;
+    int slash_counter = 0;
+    // check how many slashes we have in our path
+    for (char_index = 0; char_index < strlen(path); char_index++) {
+        if (path[char_index] == '/')
+            slash_counter++;
+    }
+    // if slash_counter is < 2, then we're in root
+    if (slash_counter < 2) 
+        return -EPERM;
+
     // Open the directory entry
-        // Make sure entry is valid
+    long subdir_starting_block = get_subdirectory_starting_block(DIR_name); 
+    // Make sure entry is valid, and open it if so
+    // handle error
+    if (subdir_starting_block == -1) {
+        printf("MKNOD: SUB_DIRECTORY NAME IS INVALID  \n");
+        return -1;
+    }
+    // open directory as a struct pointer, if no error
+    cs1550_directory_entry *subdirectory = get_subdirectory_struct(subdir_starting_block);
+    printf("MKNOD: SUBDIRECTORY LOADED \n"); 
+    
+    // DOES FILE NAME EXIST IN CURRENT DIR?
+    int file_index; 
+    int file_exists = 0;
+    // iterate through the file array and check each name
+    for (file_index = 0; file_index < subdirectory->nFiles; file_index++)
+    {
+        if (strcmp(subdirectory->files[file_index], FILE_name) == 0) 
+        {
+            file_exists = 1;
+            break;
+        }
+    }
+    
+    // if there was a match, return an error
+    if (file_exists == 1)
+        return -EEXIST;
+
+    // else, keep on keepin' on.
+
+
+
     // Find the next available file, get the block offset number 
+    long next_free_file_block = find_next_free_file_block();
         // if NOTHING left, error  
+    if (next_free_file_block = -1) {
+        // error meaning that there's no room left
+        printf("MKNOD: No room left for file entries in .disk\n");
+        return -1;
+    }
     // Updated the directory entry to hold the new block offset number as a file index
         // Increment # of files in the directory entry
-        // Set the filename in the directory entry
+    subdirectory->nFiles++;
         // Add the element to the directories array
+        // And set all the values for the directory entry
+    subdirectory->files[nFiles]->fname = FILE_name;
+    subdirectory->files[nFiles]->fext  = FILE_extension;
+    subdirectory->files[nFiles]->fsize = 0;
+    subdirectory->files[nFiles]->startBlock = next_free_file_block;
+
     // Write The Subdirectory entry we've updated back to the .disk
+    int write_return_value = write_to_subdirectory_on_disk(subdir_starting_block, subdirectory);
+    // handle error
+    if (write_return_value == -1) {
+        printf("MKNOD: Error writing our subdirectory back to disk\n");
+        return -1;
+    }
+    
+    // if we made it this far, everything worked, return 0 to indicate success
+    return 0;
 
 }
 
