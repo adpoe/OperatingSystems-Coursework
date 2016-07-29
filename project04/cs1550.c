@@ -997,7 +997,7 @@ static int cs1550_mknod(const char *path, mode_t mode, dev_t dev)
     }
 
     // now assign size and start block
-    subdirectory->files[nFiles].fsize = 0;
+    subdirectory->files[nFiles].fsize = 1;
     subdirectory->files[nFiles].nStartBlock = next_free_file_block;
 
     // Finally, WRITE the Subdirectory entry we've updated back to the .disk
@@ -1059,11 +1059,71 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
 	(void) path;
 
 	//check to make sure path exists
-	//check that size is > 0
-	//check that offset is <= to the file size
-	//write data
-	//set size (should be same as input) and return, or error
+    // get values for all parts of path
+    char DIR_name[MAX_FILENAME + 1];
+    char FILE_name[MAX_FILENAME + 1];
+    char FILE_extension[MAX_EXTENSION + 1];
+    get_filepath(path, DIR_name, FILE_name, FILE_extension); 
 
+    printf("WRITE: CHECKING IF PATH EXISTS");
+    // Open the directory entry
+    long subdir_starting_block = get_subdirectory_starting_block(DIR_name); 
+    // Make sure entry is valid, and open it if so
+    // handle error
+    if (subdir_starting_block == -1) {
+        printf("WRITE: SUB_DIRECTORY NAME IS INVALID  \n");
+        return -1;
+    }
+    // open directory as a struct pointer, if no error
+    cs1550_directory_entry *subdirectory = get_subdirectory_struct(subdir_starting_block);
+    printf("WRITE: SUBDIRECTORY LOADED \n"); 
+
+    // DOES FILE NAME EXIST IN CURRENT DIR?
+    int file_index = -1; 
+    // iterate through the file array and check each name
+    for (file_index = 0; file_index < subdirectory->nFiles; file_index++)
+    {
+        if (strcmp(subdirectory->files[file_index].fname, FILE_name) == 0) 
+        {
+            // we break and keep the file index where we had a match
+            break;
+        }
+    }
+    
+    // if there was a match, return an error
+    if (file_index == -1)
+    {
+        printf("WRITE:  FILE NOT FOUND\n");
+        return -1;
+    }
+
+	//check that size is > 0
+    if (size < 1) {
+        printf("WRITE:   SIZE IS < 1\n");
+    }
+
+	//check that offset is <= to the file size
+    if (offset > subdirectory->files[file_index].fsize) {
+        printf("WRITE:  Offset <= File Size\n");
+        return -EFBIG;
+    }
+
+	//write data
+    int file_size = subdirectory->files[file_index].fsize;
+    int overage = file_size - offset;
+    // want to do:  filesize += size - overage
+    // if overage < 0 ---> REJECT
+    if (offset <= file_size)
+    {
+        // okay
+    }
+
+    else 
+    {
+        // bad
+    }
+    
+	//set size (should be same as input) and return, or error
 	return size;
 }
 
