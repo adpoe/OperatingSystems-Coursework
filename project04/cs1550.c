@@ -1120,9 +1120,11 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
 
     }
 	//check that offset is <= to the file size
+    // NOTE:  Looks like this call is used recursively, in some way, and this is the end condition. 
+    //        It must ALWAYS be true at the END of a READ
     if (offset > file_size) {
         printf("CS1550_READ:: Offset is > file size. Offset=%d, FileSize=%d\n\n", (int)offset, file_size );
-        return -1;
+        return 0;
     }
 
 	//read in data
