@@ -1173,7 +1173,9 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
     // null terminate our buffer
     buf[index+1] = '\0';
     printf("CS1550_READ:: BUFFER IS FILLED AND SAYS: %s\n", buf);
+    printf("CS1550_READ:: LENGTH OF BUFFER IS: %d \n", (int)strlen(buf));
     
+
     //set size and return, or error
 	//size = file_info[1];
 
