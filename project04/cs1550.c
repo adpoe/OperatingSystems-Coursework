@@ -598,9 +598,9 @@ long find_next_free_file_block() {
         // THEN CHECK IF THE 0th byte of our data == 0
         if (DISK_block.data[0] == 0)  {
             // IF YES --> it's free
-            printf("FIND_NEXT_FREE_FILE_LOACTION: Found free block at: %d\n", file_index);
+            printf("FIND_NEXT_FREE_FILE_LOCATION: Found free block at: %ld\n", file_index + (1 + MAX_FILES_IN_DIR) );
             // get our return value, and break out of the loop
-            next_free_block_offset = file_index;
+            next_free_block_offset = file_index + (1 + MAX_FILES_IN_DIR) ;
             break;
         }
         // IF NO --> keep going, it's being used
@@ -1145,17 +1145,6 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
         file_index = 0;
         printf("CS1550_WRITE:  FILE DOES NOT EXIST!!!\n");
         //return -1;
-        /* IN CASE WE WANT TO MAKE A NEW FILE HERE
-        int mknod_result = cs1550_mknod(path, 0, 0);
-        printf("CS1550_WRITE:: CALLED MKNOD TO CREATE A NEW FILE, TRIED TO WRITE TO SOMETHING THAT DOENS'T EXIST\n");
-        
-        if (mknod_result != 0) { 
-            printf("CS1550_WRITE:  FILE NOT FOUND AND COULDN'T BE CREATED\n");
-            return -1;
-        }
-        // otherwise, file index should be 1
-        file_index = 1;
-        */
         
         // if the file isn't found, put it at location nFiles++ in the directory;
         // if nFiles = 0, put it at 0
@@ -1169,23 +1158,101 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
         }
         subdirectory->nFiles++;
         int new_file_index = subdirectory->nFiles - 1; 
+        file_index = new_file_index;
         printf("CS1550_WRITE:  Increment Number of Files by 1, file index=%d\n", new_file_index);
         // get a reference to a file struct
         struct cs1550_file_directory new_file;// = subdirectory->files[subdirectory->nFiles-1]; 
         printf("CS1550_WRITE:  Allocated a New struct\n");
         // change its attributes to hold the values for the NEW file
         strcpy(new_file.fname, FILE_name);
-        printf("CS1550_WRITE:  STRCPY'd File name\n");
+        printf("CS1550_WRITE:  STRCPY'd File name, and it is %s\n", new_file.fname);
         strcpy(new_file.fext, FILE_extension);
-        printf("CS1550_WRITE:  STRCPY'd File ext\n");
+        printf("CS1550_WRITE:  STRCPY'd File ext, and it is: %s\n", new_file.fext);
         new_file.fsize = 0;
-        printf("CS1550_WRITE:  set file size\n");
+        printf("CS1550_WRITE:  set file size, and it is %d\n", 0);
         new_file.nStartBlock = find_next_free_file_block(); 
         printf("CS1550_WRITE:  Set nStartBlock and it = %ld\n", new_file.nStartBlock);
         // write our updated values BACK to the subdirectory struct, so we can use them later
         subdirectory->files[new_file_index] = new_file;
 
         printf("CS1550_WRITE:  Allocated ALL info for NEW FILE\n");
+
+        // SET EVERYTHING MANUALLY....
+        strcpy(subdirectory->files[new_file_index].fname,  new_file.fname);
+        strcpy(subdirectory->files[new_file_index].fext, new_file.fext);
+        subdirectory->files[new_file_index].fsize = new_file.fsize;
+        subdirectory->files[new_file_index].nStartBlock = new_file.nStartBlock;
+        // DOES THIS EVER GET SET? 
+        
+        /*
+         * PRINT THE FILE INFORMATION, SO WE KNOW WHAT'S GOING ON
+         */
+        char file_name[MAX_FILENAME + 1];
+        char file_ext[MAX_EXTENSION + 1];
+        strcpy(file_name, subdirectory->files[file_index].fname);
+        strcpy(file_ext, subdirectory->files[file_index].fext);
+        size_t file_size_check = subdirectory->files[file_index].fsize; 
+        long file_start_block = subdirectory->files[file_index].nStartBlock; 
+        printf("CS1550_WRITE: \tFNAME = %s\n \tFEXT = %s\n \tfsize = %d\n, \tnStartBlock=%ld\n", file_name, file_ext, (int)file_size_check, file_start_block);
+        /* END PRINTINT FILE INFO */
+
+
+        // DUPLICATED TO SEE IF IT WORKS
+        cs1550_disk_block *disk_block;
+        long file_starting_block = subdirectory->files[file_index].nStartBlock;
+        int file_size = subdirectory->files[file_index].fsize;
+        int overage = file_size - offset;
+        printf("CS1550_WRITE: FILE OFFSET = %d\n", (int)offset);
+
+        // if overage < 0 ---> REJECT
+        if (overage <= 0)
+        {
+            // okay
+            // go get a reference to the file struct so we can access its data
+            printf("WRITE:: Getting starting block from %ld\n", file_starting_block);
+            disk_block = get_disk_block(file_starting_block);
+            // make sure we have a value for the disk block
+            if (NULL == disk_block)
+            {
+                printf("WRITE:: DISK BLOCK IS NULL\n");
+                return -1;
+            }
+            //index into our data segment at this disk block and write however many bytes we need to from the buffer
+            int buffer_index;
+            for (buffer_index=0; buffer_index < size; buffer_index++)
+            {
+                disk_block->data[offset + buffer_index] = buf[buffer_index];
+            }
+        }
+        else 
+        {
+            // bad
+            printf("CS1550_WRITE: FILE TOO LARGE FROM CS1550\n");
+            return -EFBIG;
+        }
+
+        // WRITE DATA BACK TO .DISK
+        // want to do:  filesize += size - overage
+        subdirectory->files[file_index].fsize += (size - overage);
+
+        // write sub_dir with new file_size back to disk
+        int subdir_write = write_to_subdirectory_on_disk(subdir_starting_block, subdirectory);
+        if (-1 == subdir_write) {
+            printf("WRITE->SUBDIR_WRITE::  Failed to write subdir to disk\n");
+            return -1;
+        }
+
+        // write updated file to disk
+        int file_write = write_to_file_on_disk(file_starting_block, disk_block);
+        if (-1 == file_write) {
+            printf("WRITE->FILE_WRITE::  Failed to write file to disk\n");
+            return -1;
+        }
+
+        //set size (should be same as input) and return, or error
+        return size;
+
+        // END DUPLICATION
     }
 
     printf("CS1550_WRITE:  FILE INDEX=%d\n", file_index);
@@ -1213,20 +1280,19 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
     strcpy(file_ext, subdirectory->files[file_index].fext);
     size_t file_size_check = subdirectory->files[file_index].fsize; 
     long file_start_block = subdirectory->files[file_index].nStartBlock; 
+    int overage = file_size_check - offset;
+    subdirectory->files[file_index].fsize += size - overage;
     printf("CS1550_WRITE: \tFNAME = %s\n \tFEXT = %s\n \tfsize = %d\n, \tnStartBlock=%ld\n", file_name, file_ext, (int)file_size_check, file_start_block);
-
     /* END PRINTINT FILE INFO */
     cs1550_disk_block *disk_block;
-    long file_starting_block = subdirectory->files[file_index].nStartBlock;
-    int file_size = subdirectory->files[file_index].fsize;
-    int overage = file_size - offset;
+    int overage_check = file_size_check - offset;
     // if overage < 0 ---> REJECT
-    if (overage < 0)
+    if (overage_check <= 0)
     {
         // okay
         // go get a reference to the file struct so we can access its data
-        printf("WRITE:: Getting starting block from %ld\n", file_starting_block);
-        disk_block = get_disk_block(file_starting_block);
+        printf("CS1550_WRITE:: Getting starting block from %ld\n", file_start_block);
+        disk_block = get_disk_block(file_start_block);
         // make sure we have a value for the disk block
         if (NULL == disk_block)
         {
@@ -1249,7 +1315,7 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
 
     // WRITE DATA BACK TO .DISK
     // want to do:  filesize += size - overage
-    subdirectory->files[file_index].fsize += (size - overage);
+    //subdirectory->files[file_index].fsize += size - overage;
 
     // write sub_dir with new file_size back to disk
     int subdir_write = write_to_subdirectory_on_disk(subdir_starting_block, subdirectory);
@@ -1259,7 +1325,7 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
     }
 
     // write updated file to disk
-    int file_write = write_to_file_on_disk(file_starting_block, disk_block);
+    int file_write = write_to_file_on_disk(file_start_block, disk_block);
     if (-1 == file_write) {
         printf("WRITE->FILE_WRITE::  Failed to write file to disk\n");
         return -1;
