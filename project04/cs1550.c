@@ -905,10 +905,10 @@ static int cs1550_rmdir(const char *path)
  */
 static int cs1550_mknod(const char *path, mode_t mode, dev_t dev)
 {
+    printf("CS1550_MKNOD: MKNOD CALLED\n");
     //(void) path; // for now, cast to avoid error
 	(void) mode;
 	(void) dev;
-	return 0;
 
     // Parse the path
     char DIR_name[MAX_FILENAME + 1];
@@ -917,6 +917,7 @@ static int cs1550_mknod(const char *path, mode_t mode, dev_t dev)
         // fill all declared strings above with proper values
     get_filepath(path, DIR_name, FILE_name, FILE_extension);
 
+    printf("CS1550_MKNOD: FILE PATH PARSED\n");
     // CHECK FOR ERRORS
     // Is name length beyond 8.3 chars?
     if (strlen(DIR_name) > 8 || strlen(FILE_extension) > 3) {
@@ -931,6 +932,7 @@ static int cs1550_mknod(const char *path, mode_t mode, dev_t dev)
         if (path[char_index] == '/')
             slash_counter++;
     }
+    printf("MKNOD: SLASH COUNT = %d\n", slash_counter);
     // if slash_counter is < 2, then we're in root
     if (slash_counter < 2) 
         return -EPERM;
@@ -1065,7 +1067,7 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
     }
 	//check that offset is <= to the file size
     if (offset > file_size) {
-        printf("CS1550_READ:: Offset is > file size. Offset=%d, FileSize=%d\n", offset, file_size);
+        printf("CS1550_READ:: Offset is > file size. Offset=%d, FileSize=%d\n", (int)offset, file_size);
         return -1;
     }
 
@@ -1171,13 +1173,13 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
     /*
      * PRINT THE FILE INFORMATION, SO WE KNOW WHAT'S GOING ON
      */
-    char *file_name;
-    char *file_ext;
+    char file_name[MAX_FILENAME + 1];
+    char file_ext[MAX_EXTENSION + 1];
     strcpy(file_name, subdirectory->files[file_index].fname);
     strcpy(file_ext, subdirectory->files[file_index].fext);
     size_t file_size_check = subdirectory->files[file_index].fsize; 
     long file_start_block = subdirectory->files[file_index].nStartBlock; 
-    printf("CS1550_WRITE: \tFNAME = %s\n \tFEXT = %s\n \tfsize = %d\n, \tnStartBlock=%ld\n", file_name, file_ext, file_size_check, file_start_block);
+    printf("CS1550_WRITE: \tFNAME = %s\n \tFEXT = %s\n \tfsize = %d\n, \tnStartBlock=%ld\n", file_name, file_ext, (int)file_size_check, file_start_block);
 
     /* END PRINTINT FILE INFO */
     cs1550_disk_block *disk_block;
