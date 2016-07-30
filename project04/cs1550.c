@@ -1122,12 +1122,14 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
     int file_index; 
     int file_found = -1;
     // iterate through the file array and check each name
-    for (file_index = 0; file_index < subdirectory->nFiles; file_index++)
+    for (file_index = 0; file_index < MAX_FILES_IN_DIR; file_index++)
     {
+
+        printf("CS1550_WRITE:  ITERATING THROUGH FILES IN DIRECTORY TO FIND IF IT EXISTS\n");
         if (strcmp(subdirectory->files[file_index].fname, FILE_name) == 0 
                 && 0 == strcmp(subdirectory->files[file_index].fext, FILE_extension)) 
         {
-            printf("WRITE:  ITERATING THROUGH FILES IN DIRECTORY TO FIND IF IT EXISTS\n");
+            printf("CS1550_WRITE:  MATCH FOUND\n");
             // we break and keep the file index where we had a match
             file_found = 1;
             break;
@@ -1139,8 +1141,10 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
     if (file_found == -1)
     {
         
+        // if we didn't find anything, set the file index back to 0
+        file_index = 0;
         printf("CS1550_WRITE:  FILE DOES NOT EXIST!!!\n");
-        return -1;
+        //return -1;
         /* IN CASE WE WANT TO MAKE A NEW FILE HERE
         int mknod_result = cs1550_mknod(path, 0, 0);
         printf("CS1550_WRITE:: CALLED MKNOD TO CREATE A NEW FILE, TRIED TO WRITE TO SOMETHING THAT DOENS'T EXIST\n");
@@ -1152,6 +1156,36 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
         // otherwise, file index should be 1
         file_index = 1;
         */
+        
+        // if the file isn't found, put it at location nFiles++ in the directory;
+        // if nFiles = 0, put it at 0
+        // get the index first
+        // then, increment the number of files
+        if (subdirectory->nFiles < 0 || subdirectory->nFiles > 17) 
+        {
+            // if the nFiles in our subdirectory wasn't initalized for any reason, then we need to make sure we don't get a CRAZY number
+            // and if we have a crazy number, it really should be 0 at this point
+            subdirectory->nFiles = 0;
+        }
+        subdirectory->nFiles++;
+        int new_file_index = subdirectory->nFiles - 1; 
+        printf("CS1550_WRITE:  Increment Number of Files by 1, file index=%d\n", new_file_index);
+        // get a reference to a file struct
+        struct cs1550_file_directory new_file;// = subdirectory->files[subdirectory->nFiles-1]; 
+        printf("CS1550_WRITE:  Allocated a New struct\n");
+        // change its attributes to hold the values for the NEW file
+        strcpy(new_file.fname, FILE_name);
+        printf("CS1550_WRITE:  STRCPY'd File name\n");
+        strcpy(new_file.fext, FILE_extension);
+        printf("CS1550_WRITE:  STRCPY'd File ext\n");
+        new_file.fsize = 0;
+        printf("CS1550_WRITE:  set file size\n");
+        new_file.nStartBlock = find_next_free_file_block(); 
+        printf("CS1550_WRITE:  Set nStartBlock and it = %ld\n", new_file.nStartBlock);
+        // write our updated values BACK to the subdirectory struct, so we can use them later
+        subdirectory->files[new_file_index] = new_file;
+
+        printf("CS1550_WRITE:  Allocated ALL info for NEW FILE\n");
     }
 
     printf("CS1550_WRITE:  FILE INDEX=%d\n", file_index);
@@ -1209,6 +1243,7 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
     else 
     {
         // bad
+        printf("CS1550_WRITE: FILE TOO LARGE FROM CS1550\n");
         return -EFBIG;
     }
 
