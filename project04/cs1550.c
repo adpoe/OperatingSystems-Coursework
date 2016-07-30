@@ -997,7 +997,7 @@ static int cs1550_mknod(const char *path, mode_t mode, dev_t dev)
     }
 
     // now assign size and start block
-    subdirectory->files[nFiles].fsize = 1;
+    subdirectory->files[nFiles].fsize = 0;
     subdirectory->files[nFiles].nStartBlock = next_free_file_block;
 
     // Finally, WRITE the Subdirectory entry we've updated back to the .disk
@@ -1065,7 +1065,7 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
     char FILE_extension[MAX_EXTENSION + 1];
     get_filepath(path, DIR_name, FILE_name, FILE_extension); 
 
-    printf("WRITE: CHECKING IF PATH EXISTS");
+    printf("WRITE: CHECKING IF PATH EXISTS\n");
     // Open the directory entry
     long subdir_starting_block = get_subdirectory_starting_block(DIR_name); 
     // Make sure entry is valid, and open it if so
@@ -1076,53 +1076,119 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
     }
     // open directory as a struct pointer, if no error
     cs1550_directory_entry *subdirectory = get_subdirectory_struct(subdir_starting_block);
-    printf("WRITE: SUBDIRECTORY LOADED \n"); 
-
+    printf("WRITE: SUBDIRECTORY LOADED --> StartBlock is: %ld \n", subdir_starting_block); 
+    
     // DOES FILE NAME EXIST IN CURRENT DIR?
-    int file_index = -1; 
+    int file_index; 
+    int file_found = -1;
     // iterate through the file array and check each name
     for (file_index = 0; file_index < subdirectory->nFiles; file_index++)
     {
         if (strcmp(subdirectory->files[file_index].fname, FILE_name) == 0) 
         {
+            printf("WRITE:  ITERATING THROUGH FILES IN DIRECTORY TO FIND IF IT EXISTS\n");
             // we break and keep the file index where we had a match
+            file_found = 1;
             break;
         }
     }
     
-    // if there was a match, return an error
-    if (file_index == -1)
+    printf("CS1550_WRITE:  FILE INDEX=%d\n", file_index);
+    // if there was no  match, try mknod 
+    if (file_found == -1)
     {
-        printf("WRITE:  FILE NOT FOUND\n");
+        
+        printf("CS1550_WRITE:  FILE DOES NOT EXIST!!!\n");
         return -1;
+        /* IN CASE WE WANT TO MAKE A NEW FILE HERE
+        int mknod_result = cs1550_mknod(path, 0, 0);
+        printf("CS1550_WRITE:: CALLED MKNOD TO CREATE A NEW FILE, TRIED TO WRITE TO SOMETHING THAT DOENS'T EXIST\n");
+        
+        if (mknod_result != 0) { 
+            printf("CS1550_WRITE:  FILE NOT FOUND AND COULDN'T BE CREATED\n");
+            return -1;
+        }
+        // otherwise, file index should be 1
+        file_index = 1;
+        */
     }
 
+    printf("CS1550_WRITE:  FILE INDEX=%d\n", file_index);
 	//check that size is > 0
     if (size < 1) {
         printf("WRITE:   SIZE IS < 1\n");
+        return -1;
     }
 
 	//check that offset is <= to the file size
     if (offset > subdirectory->files[file_index].fsize) {
-        printf("WRITE:  Offset <= File Size\n");
+        printf("CS1550_WRITE:  OFFSET IS > FILE SIZE\n");
         return -EFBIG;
     }
 
 	//write data
+    printf("CS1550_WRITE:: Made it to WRITE SECTION of WRITE\n");
+    
+    /*
+     * PRINT THE FILE INFORMATION, SO WE KNOW WHAT'S GOING ON
+     */
+    char *file_name;
+    char *file_ext;
+    strcpy(file_name, subdirectory->files[file_index].fname);
+    strcpy(file_ext, subdirectory->files[file_index].fext);
+    size_t file_size_check = subdirectory->files[file_index].fsize; 
+    long file_start_block = subdirectory->files[file_index].nStartBlock; 
+    printf("CS1550_WRITE: \tFNAME = %s\n \tFEXT = %s\n \tfsize = %d\n, \tnStartBlock=%ld\n", file_name, file_ext, file_size_check, file_start_block);
+
+    /* END PRINTINT FILE INFO */
+    cs1550_disk_block *disk_block;
+    long file_starting_block = subdirectory->files[file_index].nStartBlock;
     int file_size = subdirectory->files[file_index].fsize;
     int overage = file_size - offset;
-    // want to do:  filesize += size - overage
     // if overage < 0 ---> REJECT
-    if (offset <= file_size)
+    if (overage < 0)
     {
         // okay
+        // go get a reference to the file struct so we can access its data
+        printf("WRITE:: Getting starting block from %ld\n", file_starting_block);
+        disk_block = get_disk_block(file_starting_block);
+        // make sure we have a value for the disk block
+        if (NULL == disk_block)
+        {
+            printf("WRITE:: DISK BLOCK IS NULL\n");
+            return -1;
+        }
+        //index into our data segment at this disk block and write however many bytes we need to from the buffer
+        int buffer_index;
+        for (buffer_index=0; buffer_index < size; buffer_index++)
+        {
+            disk_block->data[offset + buffer_index] = buf[buffer_index];
+        }
     }
-
     else 
     {
         // bad
+        return -EFBIG;
     }
-    
+
+    // WRITE DATA BACK TO .DISK
+    // want to do:  filesize += size - overage
+    subdirectory->files[file_index].fsize += (size - overage);
+
+    // write sub_dir with new file_size back to disk
+    int subdir_write = write_to_subdirectory_on_disk(subdir_starting_block, subdirectory);
+    if (-1 == subdir_write) {
+        printf("WRITE->SUBDIR_WRITE::  Failed to write subdir to disk\n");
+        return -1;
+    }
+
+    // write updated file to disk
+    int file_write = write_to_file_on_disk(file_starting_block, disk_block);
+    if (-1 == file_write) {
+        printf("WRITE->FILE_WRITE::  Failed to write file to disk\n");
+        return -1;
+    }
+
 	//set size (should be same as input) and return, or error
 	return size;
 }
