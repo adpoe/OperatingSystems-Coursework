@@ -206,7 +206,7 @@ long* get_file_starting_block(const char *subdir_name, const char *extension, lo
         if (0 == FILENAME_comparison_result && 0 == EXTENSION_comparison_result)  {
             // and if found, de-reference the starting block so we can return it, 
             // then break out of for-loop
-            starting_block = i; // we return the iteration number, since that is index within our subdirectory where there was a match 
+            starting_block = SUB_directory.files[i].nStartBlock; // we return the iteration number, since that is index within our subdirectory where there was a match 
             return_vals_array[0] = starting_block;
             return_vals_array[1] = SUB_directory.files[i].fsize;
             break;
@@ -1035,13 +1035,51 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
 	(void) fi;
 	(void) path;
 
-	//check to make sure path exists
-	//check that size is > 0
-	//check that offset is <= to the file size
-	//read in data
-	//set size and return, or error
+    int file_size;
 
-	size = 0;
+	//check to make sure path exists
+    char DIR_name[MAX_FILENAME + 1];
+    char FILE_name[MAX_FILENAME + 1];
+    char FILE_extension[MAX_EXTENSION + 1];
+    get_filepath(path, DIR_name, FILE_name, FILE_extension);
+
+    // check for root
+    if (strcmp(path, "/") == 0) return -EISDIR;
+
+    // check if path is a directory, not a file
+    if (strlen(FILE_name) < 1) return -EISDIR;
+
+    // check if file exists
+    int directory_offset = get_subdirectory_starting_block(DIR_name);
+    long *file_info = get_file_starting_block(FILE_name, FILE_extension, directory_offset);
+    // check if file not found
+    if (file_info[0] == -1) {
+       printf("CS1550_READ:: FILE NOT FOUND, file size will be 0"); 
+       file_size = 0;
+    }
+
+	//check that size is > 0
+    if ( size < 1) {
+        return -EISDIR;
+
+    }
+	//check that offset is <= to the file size
+    if (offset > file_size) {
+        printf("CS1550_READ:: Offset is > file size. Offset=%d, FileSize=%d\n", offset, file_size);
+        return -1;
+    }
+
+	//read in data
+    // open the directory up, read in the file's data
+    cs1550_disk_block *disk_block = get_disk_block(file_info[0]);
+    
+    int index;
+    for (index=0; index < size; index++) {
+        buf[index] = disk_block->data[offset+index];      
+    }
+
+    //set size and return, or error
+	//size = file_info[1];
 
 	return size;
 }
@@ -1084,7 +1122,8 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
     // iterate through the file array and check each name
     for (file_index = 0; file_index < subdirectory->nFiles; file_index++)
     {
-        if (strcmp(subdirectory->files[file_index].fname, FILE_name) == 0) 
+        if (strcmp(subdirectory->files[file_index].fname, FILE_name) == 0 
+                && 0 == strcmp(subdirectory->files[file_index].fext, FILE_extension)) 
         {
             printf("WRITE:  ITERATING THROUGH FILES IN DIRECTORY TO FIND IF IT EXISTS\n");
             // we break and keep the file index where we had a match
