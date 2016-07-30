@@ -623,7 +623,7 @@ long find_next_free_file_block() {
         // IF NO --> keep going, it's being used
 
         // fseek 512 more bytes, so we can test in the next loop iteration
-        fseek(disk_file_ptr, BLOCK_SIZE, SEEK_CUR);
+        //fseek(disk_file_ptr, BLOCK_SIZE, SEEK_CUR);
     }
     // ONCE WE REACH END OF FILE, RETURN ERROR, NOTHING IS FREE
     // and if we reach this far, return value will still be -1, 
