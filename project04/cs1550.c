@@ -1152,10 +1152,15 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
     cs1550_disk_block DISK_block;
     // check that it equals block size to ensure there wasn't an error reading the data,
     // there was actually something there, and we got all we expected
+    /*
     if (BLOCK_SIZE != fread(&DISK_block, 1, BLOCK_SIZE, disk_file_ptr)) {
         perror("DISK BLOCK: Could not read in DISK BLOCK entry from the .disk file");
     }
+    */
 
+    if (BLOCK_SIZE != fread(&DISK_block, 1, BLOCK_SIZE, disk_file_ptr)) {
+        perror("DISK BLOCK: Could not read in DISK BLOCK entry from the .disk file");
+    }
     // get our ptr to return
     //cs1550_disk_block *disk_block_ptr = malloc(sizeof(DISK_block));
     //disk_block_ptr = &DISK_block;
@@ -1169,6 +1174,7 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
     printf("CS1550_READ:: Iterating and filling buffer. Size=%d, File_Size=%d\n, offset=%d", (int)size, file_size, (int)offset);
     for (index=0; index < file_size; index++) {
         buf[index] = disk_block.data[index];
+        printf("CS1550_READ: buf[%d]=%c\n", index, buf[index]);
     }
 
     // null terminate our buffer
