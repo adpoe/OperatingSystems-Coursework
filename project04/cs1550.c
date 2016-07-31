@@ -1489,9 +1489,12 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
 
 	//check that offset is <= to the file size
     if (offset > subdirectory.files[file_index].fsize) {
-        printf("CS1550_WRITE:  OFFSET IS > FILE SIZE\n");
-        return -EFBIG;
+        printf("CS1550_WRITE - Line:%d:  OFFSET IS > FILE SIZE. Offset=%d, FileSize=%d , input size=%d\n", __LINE__, (int)offset, (int)subdirectory.files[file_index].fsize, (int)size);
+        offset = subdirectory.files[file_index].fsize - 1;
+        //return -EFBIG;
     }
+
+
 
 	//write data
     printf("CS1550_WRITE:: Made it to APPEND SECTION of WRITE\n");
@@ -1561,7 +1564,7 @@ static int cs1550_write(const char *path, const char *buf, size_t size,
         /*
          * PRINT THE FILE INFORMATION, SO WE KNOW WHAT'S GOING ON
          */
-        int file_size_check = subdirectory.files[file_index].fsize;
+        int file_size_check = subdirectory.files[file_index].fsize += (size - overage);
         long file_start_block = subdirectory.files[file_index].nStartBlock;
         printf("CS1550_WRITE: file_index=%d, \tFNAME = %s\n \tFEXT = %s\n \tfsize = %d\n, \tnStartBlock=%ld\n, directoryBlock=%ld\n", file_index, subdirectory.files[file_index].fname, subdirectory.files[file_index].fext, (int)file_size_check, file_start_block, subdir_starting_block);
         /* END PRINTINT FILE INFO */
