@@ -1090,6 +1090,7 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
 	(void) path;
 
     int file_size;
+    memset(&buf, '\0', strlen(buf));
 
 	//check to make sure path exists
     char DIR_name[MAX_FILENAME + 1];
@@ -1171,7 +1172,7 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
     }
 
     // null terminate our buffer
-    buf[index+1] = '\0';
+    buf[index] = '\0';
     printf("CS1550_READ:: BUFFER IS FILLED AND SAYS: %s\n", buf);
     printf("CS1550_READ:: LENGTH OF BUFFER IS: %d \n", (int)strlen(buf));
 
