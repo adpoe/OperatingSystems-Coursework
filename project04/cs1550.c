@@ -1186,7 +1186,7 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
     //set size and return, or error
 	//size = file_info[1];
 
-	return size;
+	return size - offset;
 }
 
 /*
