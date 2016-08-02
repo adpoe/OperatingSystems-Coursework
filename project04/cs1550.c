@@ -83,12 +83,12 @@ typedef struct cs1550_disk_block cs1550_disk_block;
 
 
 // Data Map
-struct cs1550_data_map {
+struct cs1550_bitmap {
     char blocks[MAX_DATA_IN_BLOCK];
     // block 0 = root
-    // blocks 0 -> 17 = directories
-    // block 18 = this data map
-    // blocks 19 ->end = files
+    // blocks 1 -> 17 = directories
+    // blocks 18 -> end-1 = files
+    // LAST Block - the data map
 };
 
 typedef struct cs1550_data_map cs1550_data_map;
