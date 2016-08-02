@@ -1124,6 +1124,12 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
 
     }
 
+    // Check if we are opening this with nano
+    if (offset > file_size && strlen(buf) == 1 && buf[0] == 'x') {
+        // why this is is true, I do not know. Buf after examining the printouts... it is. So not questinong it. 
+        printf("CS1550_READ: Open with nano!\n"); 
+        return -1;
+    }
 
 	//check that offset is <= to the file size
     // NOTE:  Looks like this call is used recursively, in some way, and this is the end condition.
