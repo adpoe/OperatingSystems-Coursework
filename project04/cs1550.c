@@ -1166,19 +1166,23 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
     //disk_block_ptr = &DISK_block;
 
     disk_block = DISK_block;
+
+
     // close the file
     fclose(disk_file_ptr);
     /* END GRAB DATA FROM .DISK */
 
-    int index;
+    // TRY MEMCPY
+    /*int index;
     printf("CS1550_READ:: Iterating and filling buffer. Size=%d, File_Size=%d\n, offset=%d", (int)size, file_size, (int)offset);
     for (index=0; index < file_size; index++) {
         buf[index] = disk_block.data[index];
         printf("CS1550_READ: buf[%d]=%c\n", index, buf[index]);
-    }
+    }*/
+    memcpy(buf, disk_block.data, size);
 
     // null terminate our buffer
-    buf[index] = '\0';
+    //buf[index] = '\0';
     printf("CS1550_READ:: BUFFER IS FILLED AND SAYS: %s\n", buf);
     printf("CS1550_READ:: LENGTH OF BUFFER IS: %d \n", (int)strlen(buf));
 
