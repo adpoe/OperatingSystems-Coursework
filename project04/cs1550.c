@@ -1084,13 +1084,16 @@ static int cs1550_unlink(const char *path)
 static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
 			  struct fuse_file_info *fi)
 {
+    
+    printf("CS1550_READ:: DATA AT START OF FUNCTION. Size=%d,  offset=%d\n, buf=%s, strlen(buf)=%d\n", (int)size, (int)offset, buf, (int)strlen(buf));
+    int buf_start_size = strlen(buf);
 	(void) buf;
 	(void) offset;
 	(void) fi;
 	(void) path;
 
     int file_size;
-    memset(&buf, '\0', strlen(buf));
+    //memset(&buf, '\0', strlen(buf));
 
 	//check to make sure path exists
     char DIR_name[MAX_FILENAME + 1];
@@ -1120,6 +1123,8 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
         return -EISDIR;
 
     }
+
+
 	//check that offset is <= to the file size
     // NOTE:  Looks like this call is used recursively, in some way, and this is the end condition.
     //        It must ALWAYS be true at the END of a READ
@@ -1128,8 +1133,6 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
         return 0;
     }
 
-	//read in data
-    // open the directory up, read in the file's data
     //cs1550_disk_block *disk_block = get_disk_block(file_info[0]);
 
     cs1550_disk_block disk_block;
@@ -1173,24 +1176,34 @@ static int cs1550_read(const char *path, char *buf, size_t size, off_t offset,
     /* END GRAB DATA FROM .DISK */
 
     // TRY MEMCPY
-    /*int index;
-    printf("CS1550_READ:: Iterating and filling buffer. Size=%d, File_Size=%d\n, offset=%d", (int)size, file_size, (int)offset);
+    int index;
+    printf("CS1550_READ:: Iterating and filling buffer. Size=%d, File_Size=%d, offset=%d\n", (int)size, file_size, (int)offset);
+    index = 0;
+    printf("CS1550_READ:: Index=%d, BufferSize=%d\n", index, (int)sizeof(buf)); 
     for (index=0; index < file_size; index++) {
         buf[index] = disk_block.data[index];
         printf("CS1550_READ: buf[%d]=%c\n", index, buf[index]);
-    }*/
-    memcpy(buf, disk_block.data, size);
+    }
+    //memcpy(buf, disk_block.data, size);
 
     // null terminate our buffer
-    //buf[index] = '\0';
+    buf[index] = '\0';
+
+    // make sure buffer doesn't have stale data
+    if (strlen(buf) < buf_start_size) {
+        int i; 
+        for (i=strlen(buf); i<buf_start_size; i++) {
+            buf[i] = '\0';
+        }
+    }
     printf("CS1550_READ:: BUFFER IS FILLED AND SAYS: %s\n", buf);
-    printf("CS1550_READ:: LENGTH OF BUFFER IS: %d \n", (int)strlen(buf));
+    printf("CS1550_READ:: LENGTH OF BUFFER IS: %d, FILE_SIZE:%d \n", (int)strlen(buf), file_size);
 
 
     //set size and return, or error
 	//size = file_info[1];
 
-	return size - offset;
+	return file_size;
 }
 
 /*
